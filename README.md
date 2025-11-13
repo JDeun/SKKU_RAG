@@ -1120,19 +1120,73 @@ sudo apt install git
 
 #### 방법 1: ZIP 다운로드 (초보자 추천)
 
-1. GitHub 페이지에서 "Code" → "Download ZIP" 클릭
-2. 다운로드한 ZIP 파일 압축 해제
-3. 명령 프롬프트(cmd) 실행
-4. 압축 해제한 폴더로 이동:
-   ```bash
-   cd C:\Users\YOUR_NAME\Downloads\agentRAG
+이 방법은 Git 설치가 필요 없어 가장 쉽습니다.
+
+##### 1단계: ZIP 파일 다운로드
+
+1. 브라우저에서 GitHub 리포지토리 페이지 접속:
+   ```
+   https://github.com/JDeun/SKKU_RAG
    ```
 
-#### 방법 2: Git Clone
+2. 페이지 상단의 **"Code"** 버튼 클릭 (초록색 버튼)
+
+3. 드롭다운 메뉴에서 **"Download ZIP"** 선택
+
+4. ZIP 파일이 다운로드됨 (파일명: `SKKU_RAG-main.zip`)
+
+##### 2단계: ZIP 파일 압축 해제
+
+**Windows:**
+1. 다운로드 폴더에서 `SKKU_RAG-main.zip` 파일 찾기
+2. 파일을 마우스 오른쪽 버튼으로 클릭
+3. "압축 풀기..." 또는 "여기에 압축 풀기" 선택
+4. 압축 해제된 폴더가 생성됨: `SKKU_RAG-main`
+
+**Mac:**
+1. 다운로드 폴더에서 ZIP 파일 더블클릭
+2. 자동으로 압축 해제됨
+
+**Linux:**
+```bash
+unzip SKKU_RAG-main.zip
+```
+
+##### 3단계: 프로젝트 폴더로 이동
+
+**Windows:**
+1. 파일 탐색기에서 압축 해제된 폴더 열기: `SKKU_RAG-main`
+2. 주소 표시줄에 폴더 경로 복사 (예: `C:\Users\YOUR_NAME\Downloads\SKKU_RAG-main`)
+3. 명령 프롬프트 실행 (Win + R → `cmd` 입력)
+4. 다음 명령어 입력:
+   ```cmd
+   cd C:\Users\YOUR_NAME\Downloads\SKKU_RAG-main
+   ```
+
+**Mac/Linux:**
+```bash
+cd Downloads/SKKU_RAG-main
+```
+
+##### 4단계: 설치 확인
 
 ```bash
-git clone [저장소 주소]
-cd agentRAG
+dir  # Windows
+ls   # Mac/Linux
+```
+
+출력에 다음 파일들이 보이면 성공:
+```
+agent.py  app.py  config.py  prompts.py  README.md  requirements.txt  tools/  .env.example
+```
+
+#### 방법 2: Git Clone (개발자용)
+
+Git이 설치된 경우 이 방법을 사용하세요.
+
+```bash
+git clone https://github.com/JDeun/SKKU_RAG.git
+cd SKKU_RAG
 ```
 
 ---
