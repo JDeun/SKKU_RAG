@@ -64,7 +64,7 @@ def create_agent(
     memory = ConversationBufferWindowMemory(
         memory_key="chat_history",
         k=config.MEMORY_WINDOW_SIZE,
-        return_messages=True
+        return_messages=False
     )
 
     # ReAct 프롬프트 구성
