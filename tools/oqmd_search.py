@@ -120,13 +120,13 @@ from langchain.tools import Tool
 oqmd_search_tool = Tool(
     name="oqmd_search",
     description="""
-    OQMD(Open Quantum Materials Database)에서 DFT 계산 기반 재료 데이터를 검색합니다.
-    API 키가 필요하지 않습니다. Materials Project의 보완 데이터소스로 활용됩니다.
+    Searches DFT calculation data from OQMD (Open Quantum Materials Database).
+    No API key required. Complementary data source to Materials Project.
 
-    Input: 화학식 또는 원소 조합 (예: "Cu2O", "Fe-Ni", "CuMg")
-    Output: Formation energy, band gap, stability, 공간군 등 DFT 계산 결과
+    Input: chemical formula or element combination (e.g., "Cu2O", "Fe-Ni", "CuMg")
+    Output: formation energy, band gap, stability, space group from DFT calculations
 
-    Use for: DFT 계산 데이터 cross-reference, 안정성 비교, 밴드갭 확인
+    Use for: DFT data cross-reference, stability comparison, band gap verification
     """,
     func=lambda query: _format_results(search_oqmd(query))
 )

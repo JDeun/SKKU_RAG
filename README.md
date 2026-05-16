@@ -139,18 +139,22 @@ graph TB
     Think -->|실험 데이터| VDB[📚 VectorDB<br/>논문 검색]
     Think -->|계산 데이터| MP[🔬 Materials Project<br/>DFT 데이터]
     Think -->|최신 논문| CR[📰 Crossref<br/>논문 검색]
-    
-    VDB --> Obs1[관찰 결과 1]
-    MP --> Obs2[관찰 결과 2]
-    CR --> Obs3[관찰 결과 3]
-    
-    Obs1 --> Agent
-    Obs2 --> Agent
-    Obs3 --> Agent
-    
+    Think -->|웹 정보| WS[🌐 Web Search<br/>웹 검색]
+    Think -->|프리프린트| AX[📄 arXiv<br/>프리프린트]
+    Think -->|DFT 보완| OQ[🔬 OQMD<br/>DFT 데이터]
+
+    VDB --> Obs[관찰 결과]
+    MP --> Obs
+    CR --> Obs
+    WS --> Obs
+    AX --> Obs
+    OQ --> Obs
+
+    Obs --> Agent
+
     Agent -->|충분한 정보| Answer[✅ 종합 답변]
     Agent -->|더 필요| Think
-    
+
     style User fill:#e1f5ff
     style Agent fill:#ffe1e1
     style Think fill:#fff4e1
@@ -158,14 +162,17 @@ graph TB
     style VDB fill:#f0e1ff
     style MP fill:#f0e1ff
     style CR fill:#f0e1ff
+    style WS fill:#f0e1ff
+    style AX fill:#f0e1ff
+    style OQ fill:#f0e1ff
 ```
 
 **주요 개선 사항:**
 
 | 항목 | 기존 코드 | 새로운 코드 (AgenticRAG) |
 |------|----------|------------------------|
-| **구조** | 단일 파일 (1개) | 모듈화 (10개 파일) |
-| **데이터 소스** | VectorDB만 | VectorDB + Materials Project + Crossref |
+| **구조** | 단일 파일 (1개) | 모듈화 (12개 파일) |
+| **데이터 소스** | VectorDB만 | VectorDB + Materials Project + Crossref + Web Search + arXiv + OQMD |
 | **의사결정** | 사용자가 결정 | AI가 자동 결정 (Agentic) |
 | **프레임워크** | 없음 | ReAct (Reasoning + Acting) |
 | **도구 사용** | 수동 호출 | Tool Calling (자동) |
@@ -773,6 +780,8 @@ graph TB
         Tool2[🔬 Materials Project<br/>materials_project.py]
         Tool3[📰 Crossref<br/>crossref.py]
         Tool4[🌐 Web Search<br/>web_search.py]
+        Tool5[📄 arXiv Search<br/>arxiv_search.py]
+        Tool6[🔬 OQMD Search<br/>oqmd_search.py]
     end
 
     subgraph "외부 서비스"
@@ -781,35 +790,46 @@ graph TB
         MP[🔬 Materials Project<br/>API]
         CR[📚 Crossref<br/>API]
         WS[🌐 Brave Search<br/>Web Search]
+        AX[📄 arXiv<br/>API]
+        OQ[🔬 OQMD<br/>API]
     end
-    
+
     UI1 --> Agent
     UI2 --> Agent
-    
+
     Agent --> Config
     Agent --> Prompts
     Agent --> Tool1
     Agent --> Tool2
     Agent --> Tool3
+    Agent --> Tool4
+    Agent --> Tool5
+    Agent --> Tool6
     Agent --> LLM
-    
+
     Tool1 --> Chroma
     Tool2 --> MP
     Tool3 --> CR
-    
+    Tool4 --> WS
+    Tool5 --> AX
+    Tool6 --> OQ
+
     VDB_Builder --> PDF
     VDB_Builder --> Chroma
     VDB_Builder --> LLM
-    
+
     Config -.->|설정| VDB_Builder
     Prompts -.->|프롬프트| VDB_Builder
-    
+
     style Agent fill:#ffe1e1
     style LLM fill:#e1f5ff
     style Chroma fill:#f0e1ff
     style Tool1 fill:#fff4e1
     style Tool2 fill:#fff4e1
     style Tool3 fill:#fff4e1
+    style Tool4 fill:#fff4e1
+    style Tool5 fill:#fff4e1
+    style Tool6 fill:#fff4e1
 ```
 
 ### 데이터 흐름 (Query Processing)
@@ -883,7 +903,7 @@ agentRAG/
 │
 ├── 📄 prompts.py                   # 📝 프롬프트 관리
 │   ├── Few-shot 예제 (26개)
-│   ├── SYSTEM_TEMPLATE (C-P-P 추출용)
+│   ├── CPP_EXTRACTION_PROMPT (C-P-P 추출용)
 │   ├── CPP_EXTRACTION_PROMPT (C-P-P 추출용)
 │   └── REACT_SYSTEM_PROMPT (Agent용)
 │
@@ -988,11 +1008,11 @@ llm = ChatGoogleGenerativeAI(
 - 프롬프트 변경 시 여기만 수정
 """
 
-# 27개의 Few-shot 예제
+# 26개의 Few-shot 예제
 FEW_SHOT_EXAMPLES = [...]
 
 # C-P-P 추출 프롬프트
-SYSTEM_TEMPLATE = """..."""
+CPP_EXTRACTION_PROMPT = """..."""
 
 # ReAct Agent 프롬프트
 REACT_SYSTEM_PROMPT = """..."""
@@ -1733,6 +1753,12 @@ streamlit run app.py
 │    DFT 계산 데이터 조회      │
 │ 3. Crossref ✅               │
 │    최신 논문 검색            │
+│ 4. Web Search ✅             │
+│    웹 정보 검색 (LLM 요약)   │
+│ 5. arXiv Search ✅           │
+│    프리프린트 논문 검색      │
+│ 6. OQMD Search ✅            │
+│    DFT 데이터 (cross-ref)    │
 ├─────────────────────────────┤
 │ ⚙️ 설정                      │
 │ Temperature: [====  ] 0.0    │

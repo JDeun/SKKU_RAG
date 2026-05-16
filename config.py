@@ -58,6 +58,9 @@ if not MATERIALS_PROJECT_API_KEY:
     print("   https://next-gen.materialsproject.org/api 에서 발급받으세요.")
     MATERIALS_PROJECT_API_KEY = input("Materials Project API 키를 입력하세요 (선택, 엔터 시 스킵): ").strip() or None
 
+# Brave Search API 키
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
+
 # Crossref는 API 키 불필요 (이메일 권장)
 CROSSREF_MAILTO = os.getenv("CROSSREF_MAILTO", "your.email@example.com")
 
@@ -97,7 +100,7 @@ AGENT_MAX_ITERATIONS = 10
 # CROSSREF_API_TIMEOUT = 30  # Crossref API
 
 # OQMD 설정
-OQMD_API_BASE_URL = "https://oqmd.org/api/v1"
+OQMD_API_BASE_URL = "https://oqmd.org/oqmdapi"
 OQMD_API_TIMEOUT = 30  # 초
 OQMD_MAX_RESULTS = 5  # 기본 검색 결과 수
 
@@ -156,6 +159,7 @@ def print_config():
     print(f"📏 청크 크기: {CHUNK_SIZE}")
     print(f"📊 검색 Top-K: {RETRIEVAL_TOP_K}")
     print(f"🔑 Materials Project API: {'설정됨' if MATERIALS_PROJECT_API_KEY else '미설정'}")
+    print(f"🔍 Brave Search API: {'설정됨' if BRAVE_API_KEY else '미설정'}")
     print(f"📧 Crossref mailto: {CROSSREF_MAILTO}")
     print("="*50 + "\n")
 

@@ -19,10 +19,17 @@ import tiktoken
 from tqdm import tqdm
 
 # LangChain 관련 임포트
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# 1. 텍스트 분할기 (최신 패키지 경로)
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# 2. Document 객체 (langchain.schema 대신 core 사용)
+from langchain_core.documents import Document
+
+# 3. 임베딩 및 벡터스토어 (현재 상태 유지)
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.vectorstores import Chroma
+
+# 4. Google GenAI (최신 라이브러리 경로)
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # PDF 처리 라이브러리 (pymupdf 사용)
@@ -266,9 +273,8 @@ def create_or_load_vectordb(
         Chroma VectorDB 인스턴스
     """
     # Embedding 모델 초기화
-    embeddings = HuggingFaceEmbeddings(
-        model_name=config.EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": config.EMBEDDING_DEVICE}
+    embeddings = OllamaEmbeddings(
+        model=config.EMBEDDING_MODEL_NAME
     )
     
     # 기존 DB가 있고 재생성이 아닌 경우

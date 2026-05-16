@@ -6,12 +6,13 @@ DuckDuckGo보다 더 안정적이고 rate limit이 관대합니다.
 """
 
 import sys
-import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from typing import List, Dict, Any
 import requests
+
+import config
 
 
 def web_search(
@@ -29,7 +30,7 @@ def web_search(
         검색 결과 리스트
     """
     # API 키 확인
-    api_key = os.getenv("BRAVE_API_KEY")
+    api_key = config.BRAVE_API_KEY
     if not api_key:
         return [{
             "error": "BRAVE_API_KEY 환경변수가 설정되지 않았습니다.",
@@ -103,7 +104,6 @@ def _get_summary_llm():
     """LLM 요약용 인스턴스를 캐싱하여 반환합니다."""
     global _summary_llm
     if _summary_llm is None:
-        import config
         from langchain_google_genai import ChatGoogleGenerativeAI
         _summary_llm = ChatGoogleGenerativeAI(
             model=config.LLM_MODEL_NAME,
@@ -124,7 +124,6 @@ def _summarize_with_llm(formatted_results: str, query: str) -> str:
     Returns:
         LLM이 요약한 검색 결과
     """
-    import config
     if not config.WEB_SEARCH_SUMMARIZE:
         return formatted_results
 
@@ -151,14 +150,13 @@ from langchain.tools import Tool
 web_search_tool = Tool(
     name="web_search",
     description="""
-    Brave Search API를 사용하여 일반 웹에서 최신 정보를 검색합니다.
-    DuckDuckGo보다 더 안정적이고 rate limit이 관대합니다.
-    검색 결과는 LLM이 자동으로 요약하여 핵심 정보만 제공합니다.
+    Searches the web using Brave Search API for latest information.
+    Results are automatically summarized by LLM for concise output.
 
-    Input: 검색 키워드 (예: "copper alloy market trends 2024")
-    Output: 웹 검색 결과 요약 (제목, 링크, 핵심 요약)
+    Input: search keywords (e.g., "copper alloy market trends 2024")
+    Output: summarized web search results (title, link, key summary)
 
-    Use for: 최신 뉴스, 트렌드, 시장 동향, 일반 정보 검색
+    Use for: latest news, trends, market data, general information search
     """,
     func=lambda query: _summarize_with_llm(_format_results(web_search(query)), query)
 )
@@ -195,7 +193,7 @@ if __name__ == "__main__":
     print("Brave Web Search Tool 테스트\n")
 
     # API 키 확인
-    if not os.getenv("BRAVE_API_KEY"):
+    if not config.BRAVE_API_KEY:
         print("⚠️  BRAVE_API_KEY 환경변수가 설정되지 않았습니다.")
         print("   .env 파일에 BRAVE_API_KEY=your_key_here 추가하세요.")
         exit(1)

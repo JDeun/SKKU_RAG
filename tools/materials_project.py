@@ -174,7 +174,7 @@ def _parse_and_search(query: str) -> str:
         f"Stable: {'Yes' if result['is_stable'] else 'No'}",
         f"Crystal System: {result['crystal_system']}",
         f"Space Group: {result['space_group']}",
-        f"Density: {result['density']:.2f} g/cm³",
+        f"Density: {result['density']:.2f} g/cm³" if result['density'] is not None else "Density: N/A",
         f"Elements: {', '.join(result['elements'])}"
     ]
     
