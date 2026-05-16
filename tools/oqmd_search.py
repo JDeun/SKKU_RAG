@@ -18,7 +18,7 @@ import config
 
 def search_oqmd(
     query: str,
-    limit: int = 5
+    limit: int = None
 ) -> List[Dict[str, Any]]:
     """
     OQMD에서 재료 데이터를 검색합니다.
@@ -30,6 +30,9 @@ def search_oqmd(
     Returns:
         검색 결과 리스트
     """
+    if limit is None:
+        limit = config.OQMD_MAX_RESULTS
+
     try:
         # 화학식 기반 검색
         # OQMD API는 composition 또는 generic 파라미터 지원

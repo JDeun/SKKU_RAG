@@ -52,7 +52,7 @@ def search_arxiv(
             results.append({
                 "title": paper.title,
                 "authors": ", ".join([a.name for a in paper.authors[:5]]),
-                "abstract": paper.summary[:500],
+                "abstract": paper.summary,
                 "published": paper.published.strftime("%Y-%m-%d"),
                 "arxiv_id": paper.entry_id.split("/")[-1],
                 "pdf_url": paper.pdf_url,
@@ -92,18 +92,33 @@ def _format_results(results: List[Dict[str, Any]]) -> str:
 # ==================== LangChain Tool 래퍼 ====================
 from langchain.tools import Tool
 
+def _parse_arxiv_input(input_str: str):
+    """
+    Agent 입력을 파싱합니다.
+    - "query" → query만 사용
+    - "query | category" → query + category_filter 사용
+    """
+    if "|" in input_str:
+        parts = input_str.split("|", 1)
+        return parts[0].strip(), parts[1].strip()
+    return input_str.strip(), None
+
+
 arxiv_search_tool = Tool(
     name="arxiv_search",
     description="""
-    arXiv에서 학술 프리프린트 논문을 검색합니다. API 키가 필요하지 않습니다.
-    최신 연구 동향, 이론적 연구, 시뮬레이션 결과 등을 찾을 때 유용합니다.
+    Search preprint papers from arXiv. No API key required.
+    Useful for finding latest research trends, theoretical studies, and simulation results.
 
-    Input: 검색 키워드 (예: "copper interconnect electromigration")
-    Output: 논문 제목, 저자, 초록, 발행일, PDF 링크
+    Input: search keywords (e.g., "copper interconnect electromigration")
+           Optionally add category filter with pipe: "query | cond-mat.mtrl-sci"
+    Output: paper title, authors, abstract, published date, PDF link
 
-    Use for: 최신 프리프린트 논문, 연구 동향 파악, 이론적 배경 조사
+    Use for: latest preprints, research trends, theoretical background
     """,
-    func=lambda query: _format_results(search_arxiv(query))
+    func=lambda query: _format_results(
+        search_arxiv(*_parse_arxiv_input(query))
+    )
 )
 
 

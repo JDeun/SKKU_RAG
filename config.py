@@ -74,6 +74,8 @@ LLM_STREAMING = True  # 스트리밍 출력 여부
 # ==================== Embedding 모델 설정 ====================
 # HuggingFace Embedding 모델 (로컬 실행, API 키 불필요)
 # sentence-transformers 호환 모델 사용
+# 로컬 Ollama 등 커스텀 환경에서는 모델 이름을 변경하세요
+# HuggingFace 기본값: "google/embeddinggemma-300m"
 EMBEDDING_MODEL_NAME = "embeddinggemma"
 EMBEDDING_DEVICE = "cpu"  # "cuda" 사용 시 GPU 가속
 
@@ -102,6 +104,7 @@ CROSSREF_API_TIMEOUT = 30  # 초
 # OQMD 설정
 OQMD_API_BASE_URL = "https://oqmd.org/api/v1"
 OQMD_API_TIMEOUT = 30  # 초
+OQMD_MAX_RESULTS = 5  # 기본 검색 결과 수
 
 # arXiv 설정
 ARXIV_MAX_RESULTS = 5  # 기본 검색 결과 수

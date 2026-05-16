@@ -94,6 +94,25 @@ def web_search(
 
 
 # ==================== LLM 요약 후처리 ====================
+import logging
+
+_summary_llm = None
+
+
+def _get_summary_llm():
+    """LLM 요약용 인스턴스를 캐싱하여 반환합니다."""
+    global _summary_llm
+    if _summary_llm is None:
+        import config
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        _summary_llm = ChatGoogleGenerativeAI(
+            model=config.LLM_MODEL_NAME,
+            temperature=0.0,
+            google_api_key=config.GOOGLE_API_KEY
+        )
+    return _summary_llm
+
+
 def _summarize_with_llm(formatted_results: str, query: str) -> str:
     """
     LLM을 사용하여 웹 검색 결과를 요약합니다.
@@ -110,14 +129,9 @@ def _summarize_with_llm(formatted_results: str, query: str) -> str:
         return formatted_results
 
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
         from langchain.prompts import PromptTemplate
 
-        llm = ChatGoogleGenerativeAI(
-            model=config.LLM_MODEL_NAME,
-            temperature=0.0,
-            google_api_key=config.GOOGLE_API_KEY
-        )
+        llm = _get_summary_llm()
         summary_prompt = PromptTemplate.from_template(
             "다음 웹 검색 결과를 '{query}'와 관련하여 핵심만 요약하세요.\n"
             "각 출처의 주요 정보를 간결하게 정리하고, 출처 링크를 포함하세요.\n\n"
@@ -127,7 +141,7 @@ def _summarize_with_llm(formatted_results: str, query: str) -> str:
         result = chain.invoke({"query": query, "results": formatted_results})
         return result.content
     except Exception as e:
-        # LLM 요약 실패 시 원본 결과 반환
+        logging.warning(f"웹검색 LLM 요약 실패 (원본 결과 반환): {e}")
         return formatted_results
 
 
