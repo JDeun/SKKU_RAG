@@ -28,8 +28,7 @@ logging.getLogger('langchain').setLevel(logging.WARNING)
 logging.getLogger('langchain_core').setLevel(logging.WARNING)
 
 # 기타 라이브러리 로깅 억제
-logging.getLogger('transformers').setLevel(logging.WARNING)
-logging.getLogger('torch').setLevel(logging.WARNING)
+logging.getLogger('transformers').setLevel(logging.WARNING)  # chromadb 간접 의존성
 
 # 환경변수 로드 (.env 파일이 있으면 자동 로드)
 load_dotenv()
@@ -67,7 +66,7 @@ CROSSREF_MAILTO = os.getenv("CROSSREF_MAILTO", "your.email@example.com")
 # Gemini 모델 설정
 LLM_MODEL_NAME = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0.0  # 0에 가까울수록 결정론적, 1에 가까울수록 창의적
-LLM_MAX_OUTPUT_TOKENS = 2048  # 최대 출력 토큰 수
+# LLM_MAX_OUTPUT_TOKENS = 2048  # 필요 시 ChatGoogleGenerativeAI에 전달
 LLM_STREAMING = True  # 스트리밍 출력 여부
 
 
@@ -89,15 +88,13 @@ RETRIEVAL_TOP_K = 10  # 검색 시 반환할 상위 문서 수
 # ==================== Agent 설정 ====================
 # ReAct Agent의 최대 반복 횟수 (무한 루프 방지)
 AGENT_MAX_ITERATIONS = 10
-# Agent 타임아웃 (초 단위)
-AGENT_TIMEOUT = 120
+# AGENT_TIMEOUT = 120  # 필요 시 AgentExecutor에 max_execution_time으로 전달
 
 
 # ==================== Tool 설정 ====================
-# Materials Project API 타임아웃
-MP_API_TIMEOUT = 30  # 초
-# Crossref API 타임아웃
-CROSSREF_API_TIMEOUT = 30  # 초
+# 타임아웃 (현재 미사용, 각 도구에서 활용 시 주석 해제)
+# MP_API_TIMEOUT = 30  # Materials Project API
+# CROSSREF_API_TIMEOUT = 30  # Crossref API
 
 # OQMD 설정
 OQMD_API_BASE_URL = "https://oqmd.org/api/v1"

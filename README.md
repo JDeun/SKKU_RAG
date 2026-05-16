@@ -693,7 +693,7 @@ print(f"유사도: {similarity:.3f}")  # 0.892 (매우 유사)
 
 #### 참고 자료
 - 📄 논문: ["Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"](https://arxiv.org/abs/1908.10084)
-- 🔗 [Hugging Face Embeddings](https://huggingface.co/models?pipeline_tag=sentence-similarity)
+- 🔗 [Ollama Embedding Models](https://ollama.com/search?c=embedding)
 
 ---
 
