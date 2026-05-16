@@ -671,20 +671,20 @@ results = db.search_by_vector(query_vector, top_k=5)
 #### 코드 예시
 
 ```python
-from sentence_transformers import SentenceTransformer
+from langchain_ollama import OllamaEmbeddings
 
-# 모델 로드
-model = SentenceTransformer('google/embeddinggemma-300m')
+# Ollama 임베딩 모델 로드 (사전에 ollama pull embeddinggemma 필요)
+embeddings = OllamaEmbeddings(model="embeddinggemma")
 
 # 텍스트 → 벡터
 text1 = "Cu-Mg alloy has low resistivity"
-vector1 = model.encode(text1)
-# shape: (300,)  # 300개의 숫자
+vector1 = embeddings.embed_query(text1)
+# shape: (768,)  # 768개의 숫자
 # [0.234, -0.567, 0.891, ..., 0.123]
 
 # 의미가 유사하면 벡터도 유사
 text2 = "Copper magnesium compound shows low resistance"
-vector2 = model.encode(text2)
+vector2 = embeddings.embed_query(text2)
 
 from scipy.spatial.distance import cosine
 similarity = 1 - cosine(vector1, vector2)
@@ -1280,7 +1280,7 @@ pip install langchain-google-genai==1.0.3
 
 # Vector Database
 pip install chromadb==0.4.24
-pip install sentence-transformers==2.7.0
+pip install langchain-ollama
 
 # PDF 처리
 pip install pymupdf==1.24.2

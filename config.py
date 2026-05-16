@@ -20,8 +20,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-# Ollama/sentence-transformers 경고 억제
-logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
+# Ollama 관련 경고 억제
 logging.getLogger('httpx').setLevel(logging.WARNING)
 
 # LangChain 관련 경고 억제

@@ -8,7 +8,7 @@ langchain-google-genai==1.0.3
 
 # Vector Database & Embeddings
 chromadb==0.4.24
-sentence-transformers==2.7.0
+langchain-ollama>=0.1.0
 
 # PDF 처리
 pymupdf==1.24.2
