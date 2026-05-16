@@ -74,7 +74,7 @@ LLM_STREAMING = True  # 스트리밍 출력 여부
 # ==================== Embedding 모델 설정 ====================
 # HuggingFace Embedding 모델 (로컬 실행, API 키 불필요)
 # sentence-transformers 호환 모델 사용
-EMBEDDING_MODEL_NAME = "google/embeddinggemma-300m"
+EMBEDDING_MODEL_NAME = "embeddinggemma"
 EMBEDDING_DEVICE = "cpu"  # "cuda" 사용 시 GPU 가속
 
 
