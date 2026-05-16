@@ -149,7 +149,10 @@ FEW_SHOT_EXAMPLES_STR = "\n\n".join([
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
-from pydantic.v1 import BaseModel, Field
+try:
+    from pydantic.v1 import BaseModel, Field
+except ImportError:
+    from pydantic import BaseModel, Field
 
 
 # ==================== C-P-P 데이터 구조 정의 (Pydantic) ====================

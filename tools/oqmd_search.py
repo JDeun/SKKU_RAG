@@ -64,7 +64,7 @@ def search_oqmd(
         results = []
         entries = data.get("data", [])
 
-        for entry in entries[:limit]:
+        for entry in entries[:limit]:  # API에서도 limit 적용하지만 안전을 위해 이중 제한
             result = {
                 "composition": entry.get("composition", "N/A"),
                 "formula": entry.get("name", "N/A"),

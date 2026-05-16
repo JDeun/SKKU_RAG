@@ -209,8 +209,7 @@ def split_documents(
 
 
 def add_cpp_to_chunks(
-    chunks: List[Document],
-    batch_size: int = 5
+    chunks: List[Document]
 ) -> List[Document]:
     """
     모든 청크에 C-P-P 메타데이터를 추가합니다.
@@ -285,7 +284,11 @@ def create_or_load_vectordb(
                 persist_directory=persist_directory,
                 embedding_function=embeddings
             )
-            print(f"✅ VectorDB 로드 완료 (문서 수: {db._collection.count()})\n")
+            try:
+                doc_count = db._collection.count()
+            except Exception:
+                doc_count = "unknown"
+            print(f"✅ VectorDB 로드 완료 (문서 수: {doc_count})\n")
             return db
         except Exception as e:
             print(f"⚠️  기존 DB 로드 실패: {e}")
@@ -303,7 +306,7 @@ def create_or_load_vectordb(
             embedding=embeddings,
             persist_directory=persist_directory
         )
-        db.persist()
+        # chromadb 0.4.x에서는 persist_directory 설정 시 자동 저장됨
         print(f"✅ VectorDB 생성 완료: {persist_directory}\n")
         return db
     except Exception as e:

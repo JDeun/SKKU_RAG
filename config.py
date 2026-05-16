@@ -5,6 +5,7 @@ LLM, Embedding 모델, API 키, 하이퍼파라미터 등 모든 설정을 관�
 """
 
 import os
+import sys
 import logging
 import warnings
 from pathlib import Path
@@ -46,14 +47,14 @@ DEFAULT_PDF_PATH = PROJECT_ROOT / "data" / "pdfs"
 # ==================== API 키 설정 ====================
 # Google Gemini API 키
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GOOGLE_API_KEY:
+if not GOOGLE_API_KEY and sys.stdin.isatty():
     print("⚠️  경고: GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.")
     print("   .env 파일에 추가하거나 직접 입력하세요.")
     GOOGLE_API_KEY = input("Google API 키를 입력하세요: ").strip()
 
 # Materials Project API 키
 MATERIALS_PROJECT_API_KEY = os.getenv("MATERIALS_PROJECT_API_KEY")
-if not MATERIALS_PROJECT_API_KEY:
+if not MATERIALS_PROJECT_API_KEY and sys.stdin.isatty():
     print("⚠️  경고: MATERIALS_PROJECT_API_KEY 환경변수가 설정되지 않았습니다.")
     print("   https://next-gen.materialsproject.org/api 에서 발급받으세요.")
     MATERIALS_PROJECT_API_KEY = input("Materials Project API 키를 입력하세요 (선택, 엔터 시 스킵): ").strip() or None

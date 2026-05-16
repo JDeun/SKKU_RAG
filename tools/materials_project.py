@@ -86,7 +86,9 @@ def search_materials_project(
                 "formation_energy_per_atom": doc.formation_energy_per_atom,
                 "energy_per_atom": doc.energy_per_atom,
                 "is_stable": doc.is_stable,
-                "crystal_system": doc.symmetry.crystal_system.value if doc.symmetry else "N/A",
+                "crystal_system": (doc.symmetry.crystal_system.value
+                                  if hasattr(doc.symmetry.crystal_system, 'value')
+                                  else str(doc.symmetry.crystal_system)) if doc.symmetry else "N/A",
                 "space_group": doc.symmetry.symbol if doc.symmetry else "N/A",
                 "density": doc.density,
                 "volume": doc.volume,
@@ -143,6 +145,8 @@ def _parse_and_search(query: str) -> str:
         검색 결과 문자열
     """
     parts = query.strip().split()
+    if not parts:
+        return "Error: No chemical formula provided. Please enter a formula like 'Cu2O' or 'Si'."
     formula = parts[0]
     
     # property: 구문 파싱

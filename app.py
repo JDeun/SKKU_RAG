@@ -218,7 +218,7 @@ st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.9em;'>
     AgenticRAG | Powered by LangChain & Gemini | 
-    <a href='https://github.com' target='_blank'>GitHub</a>
+    <a href='https://github.com/JDeun/SKKU_RAG' target='_blank'>GitHub</a>
     </div>
     """,
     unsafe_allow_html=True

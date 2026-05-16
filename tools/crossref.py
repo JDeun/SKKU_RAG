@@ -85,8 +85,9 @@ def search_crossref(
             
             # 발행 연도
             published = item.get("published", {})
-            if "date-parts" in published and published["date-parts"]:
-                year = published["date-parts"][0][0]
+            date_parts = published.get("date-parts", [[]])
+            if date_parts and date_parts[0] and len(date_parts[0]) > 0:
+                year = date_parts[0][0]
             else:
                 year = "Unknown year"
             
