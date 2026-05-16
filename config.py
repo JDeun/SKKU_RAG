@@ -20,8 +20,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-# sentence-transformers 경고 억제 (모델 생성 시)
+# Ollama/sentence-transformers 경고 억제
 logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 
 # LangChain 관련 경고 억제
 logging.getLogger('langchain').setLevel(logging.WARNING)
@@ -72,12 +73,10 @@ LLM_STREAMING = True  # 스트리밍 출력 여부
 
 
 # ==================== Embedding 모델 설정 ====================
-# HuggingFace Embedding 모델 (로컬 실행, API 키 불필요)
-# sentence-transformers 호환 모델 사용
-# 로컬 Ollama 등 커스텀 환경에서는 모델 이름을 변경하세요
-# HuggingFace 기본값: "google/embeddinggemma-300m"
+# Ollama Embedding 모델 (로컬 실행, API 키 불필요)
+# Ollama에서 `ollama pull embeddinggemma` 로 모델을 미리 받아야 합니다.
+# 다른 Ollama 임베딩 모델 사용 시 이름만 변경 (예: "nomic-embed-text", "mxbai-embed-large")
 EMBEDDING_MODEL_NAME = "embeddinggemma"
-EMBEDDING_DEVICE = "cpu"  # "cuda" 사용 시 GPU 가속
 
 
 # ==================== VectorDB 설정 ====================
@@ -157,8 +156,7 @@ def print_config():
     print(f"📁 VectorDB 경로: {VECTOR_DB_PATH}")
     print(f"🤖 LLM 모델: {LLM_MODEL_NAME}")
     print(f"🌡️  Temperature: {LLM_TEMPERATURE}")
-    print(f"🔢 Embedding 모델: {EMBEDDING_MODEL_NAME}")
-    print(f"🖥️  디바이스: {EMBEDDING_DEVICE}")
+    print(f"🔢 Embedding 모델: {EMBEDDING_MODEL_NAME} (Ollama)")
     print(f"📏 청크 크기: {CHUNK_SIZE}")
     print(f"📊 검색 Top-K: {RETRIEVAL_TOP_K}")
     print(f"🔑 Materials Project API: {'설정됨' if MATERIALS_PROJECT_API_KEY else '미설정'}")
