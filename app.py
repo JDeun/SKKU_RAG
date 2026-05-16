@@ -53,9 +53,17 @@ with st.sidebar:
     st.caption("✅")
 
     st.markdown("**4. Web Search**")
-    st.caption("일반 웹 정보 검색")
+    st.caption("일반 웹 정보 검색 (LLM 요약)")
     st.caption("✅")
-    
+
+    st.markdown("**5. arXiv Search**")
+    st.caption("프리프린트 논문 검색")
+    st.caption("✅ API 키 불필요")
+
+    st.markdown("**6. OQMD Search**")
+    st.caption("DFT 계산 데이터 (cross-reference)")
+    st.caption("✅ API 키 불필요")
+
     st.markdown("---")
     
     # 설정
@@ -79,6 +87,9 @@ with st.sidebar:
     # 대화 초기화
     if st.button("🔄 대화 초기화", use_container_width=True):
         st.session_state.messages = []
+        # 에이전트 메모리도 함께 리셋
+        if st.session_state.agent and hasattr(st.session_state.agent, 'memory'):
+            st.session_state.agent.memory.clear()
         st.session_state.agent = None
         st.rerun()
     

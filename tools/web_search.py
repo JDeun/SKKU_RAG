@@ -93,6 +93,44 @@ def web_search(
         }]
 
 
+# ==================== LLM 요약 후처리 ====================
+def _summarize_with_llm(formatted_results: str, query: str) -> str:
+    """
+    LLM을 사용하여 웹 검색 결과를 요약합니다.
+
+    Args:
+        formatted_results: 포맷팅된 검색 결과 문자열
+        query: 원래 검색 쿼리
+
+    Returns:
+        LLM이 요약한 검색 결과
+    """
+    import config
+    if not config.WEB_SEARCH_SUMMARIZE:
+        return formatted_results
+
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain.prompts import PromptTemplate
+
+        llm = ChatGoogleGenerativeAI(
+            model=config.LLM_MODEL_NAME,
+            temperature=0.0,
+            google_api_key=config.GOOGLE_API_KEY
+        )
+        summary_prompt = PromptTemplate.from_template(
+            "다음 웹 검색 결과를 '{query}'와 관련하여 핵심만 요약하세요.\n"
+            "각 출처의 주요 정보를 간결하게 정리하고, 출처 링크를 포함하세요.\n\n"
+            "{results}"
+        )
+        chain = summary_prompt | llm
+        result = chain.invoke({"query": query, "results": formatted_results})
+        return result.content
+    except Exception as e:
+        # LLM 요약 실패 시 원본 결과 반환
+        return formatted_results
+
+
 # ==================== LangChain Tool 래퍼 ====================
 from langchain.tools import Tool
 
@@ -101,13 +139,14 @@ web_search_tool = Tool(
     description="""
     Brave Search API를 사용하여 일반 웹에서 최신 정보를 검색합니다.
     DuckDuckGo보다 더 안정적이고 rate limit이 관대합니다.
+    검색 결과는 LLM이 자동으로 요약하여 핵심 정보만 제공합니다.
 
     Input: 검색 키워드 (예: "copper alloy market trends 2024")
-    Output: 웹 검색 결과 (제목, 링크, 요약)
+    Output: 웹 검색 결과 요약 (제목, 링크, 핵심 요약)
 
     Use for: 최신 뉴스, 트렌드, 시장 동향, 일반 정보 검색
     """,
-    func=lambda query: _format_results(web_search(query))
+    func=lambda query: _summarize_with_llm(_format_results(web_search(query)), query)
 )
 
 

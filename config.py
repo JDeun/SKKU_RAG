@@ -74,7 +74,7 @@ LLM_STREAMING = True  # 스트리밍 출력 여부
 # ==================== Embedding 모델 설정 ====================
 # HuggingFace Embedding 모델 (로컬 실행, API 키 불필요)
 # sentence-transformers 호환 모델 사용
-EMBEDDING_MODEL_NAME = "google/embeddinggemma-300m"
+EMBEDDING_MODEL_NAME = "embeddinggemma"
 EMBEDDING_DEVICE = "cpu"  # "cuda" 사용 시 GPU 가속
 
 
@@ -98,6 +98,19 @@ AGENT_TIMEOUT = 120
 MP_API_TIMEOUT = 30  # 초
 # Crossref API 타임아웃
 CROSSREF_API_TIMEOUT = 30  # 초
+
+# OQMD 설정
+OQMD_API_BASE_URL = "https://oqmd.org/api/v1"
+OQMD_API_TIMEOUT = 30  # 초
+
+# arXiv 설정
+ARXIV_MAX_RESULTS = 5  # 기본 검색 결과 수
+
+# 웹검색 후처리
+WEB_SEARCH_SUMMARIZE = True  # True 시 LLM으로 검색 결과 요약
+
+# 멀티턴 대화 메모리
+MEMORY_WINDOW_SIZE = 5  # 최근 N턴만 유지 (토큰 절약)
 
 
 # ==================== 로깅 설정 ====================

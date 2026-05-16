@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferWindowMemory
 
 # 설정 및 프롬프트
 import config
@@ -22,6 +23,8 @@ from tools.vectordb_search import vectordb_search_tool
 from tools.materials_project import materials_project_tool
 from tools.crossref import crossref_tool
 from tools.web_search import web_search_tool
+from tools.arxiv_search import arxiv_search_tool
+from tools.oqmd_search import oqmd_search_tool
 
 
 # ==================== Agent 초기화 ====================
@@ -52,8 +55,17 @@ def create_agent(
         vectordb_search_tool,
         materials_project_tool,
         crossref_tool,
-        web_search_tool
+        web_search_tool,
+        arxiv_search_tool,
+        oqmd_search_tool,
     ]
+
+    # 멀티턴 대화 메모리
+    memory = ConversationBufferWindowMemory(
+        memory_key="chat_history",
+        k=config.MEMORY_WINDOW_SIZE,
+        return_messages=True
+    )
 
     # ReAct 프롬프트 구성
     react_prompt = PromptTemplate.from_template(prompts.REACT_SYSTEM_PROMPT)
@@ -69,6 +81,7 @@ def create_agent(
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
+        memory=memory,
         verbose=verbose,
         max_iterations=config.AGENT_MAX_ITERATIONS,
         handle_parsing_errors=True,
@@ -132,7 +145,9 @@ def interactive_chat():
     print("- VectorDB: 논문의 C-P-P 데이터 검색")
     print("- Materials Project: DFT 계산 데이터")
     print("- Crossref: 최신 논문 검색")
-    print("- Web Search: 일반 웹 정보 검색")
+    print("- Web Search: 일반 웹 정보 검색 (LLM 요약)")
+    print("- arXiv Search: 프리프린트 논문 검색 (API 키 불필요)")
+    print("- OQMD Search: DFT 계산 데이터 (API 키 불필요)")
     print("\n종료하려면 'exit', 'quit', 또는 'q'를 입력하세요.\n")
     print("="*60 + "\n")
 

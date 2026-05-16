@@ -20,7 +20,8 @@
 8. [사용 방법](#-사용-방법)
 9. [코드 상세 설명](#-코드-상세-설명)
 10. [문제 해결](#-문제-해결)
-11. [참고 자료](#-참고-자료)
+11. [학생 챌린지 기능](#-학생-챌린지-기능)
+12. [참고 자료](#-참고-자료)
 
 ---
 
@@ -34,6 +35,8 @@
 1. **논문 분석**: PDF 논문에서 재료의 구성(Composition), 제조공정(Process), 물성(Property)을 자동 추출
 2. **지능형 검색**: 사용자 질문에 따라 적절한 도구를 자동 선택
 3. **다중 데이터 소스**: 논문 DB + 계산 데이터베이스 + 최신 논문 검색 + 웹 정보 검색
+4. **멀티턴 대화**: 이전 대화 맥락을 기억하여 연속 질문 지원
+5. **확장 도구**: arXiv 프리프린트 검색, OQMD DFT 데이터, 웹검색 LLM 요약
 
 #### 실제 사용 예시
 
@@ -915,9 +918,18 @@ agentRAG/
 │   │   ├── search_crossref()
 │   │   └── crossref_tool
 │   │
-│   └── 📄 web_search.py            # 웹 검색
-│       ├── web_search()
-│       └── web_search_tool (DuckDuckGo)
+│   ├── 📄 web_search.py            # 웹 검색 (LLM 요약 포함)
+│   │   ├── web_search()
+│   │   ├── _summarize_with_llm()  # 🆕 검색 결과 LLM 요약
+│   │   └── web_search_tool
+│   │
+│   ├── 📄 arxiv_search.py          # 🆕 arXiv 논문 검색
+│   │   ├── search_arxiv()
+│   │   └── arxiv_search_tool
+│   │
+│   └── 📄 oqmd_search.py           # 🆕 OQMD DFT 데이터
+│       ├── search_oqmd()
+│       └── oqmd_search_tool
 │
 ├── 📄 .env.example                 # 🔑 환경변수 템플릿
 ├── 📄 .env                         # 🔑 실제 API 키 (사용자 생성)
@@ -1915,6 +1927,107 @@ Output: {'material_id': 'mp-361', 'band_gap': 2.137...}
 - 🎥 [RAG 설명 영상](https://www.youtube.com/watch?v=T-D1OfcDW1M)
 - 🎥 [LangChain Tutorial](https://www.youtube.com/watch?v=HSZ_uaif57o)
 - 📚 [Prompt Engineering Guide](https://www.promptingguide.ai/)
+
+---
+
+## 🎯 학생 챌린지 기능
+
+> 이 프로젝트에는 학생들이 직접 확장해볼 수 있는 챌린지 기능이 포함되어 있습니다.
+
+### 추가된 기능 목록
+
+| 기능 | 파일 | 설명 | API 키 |
+|------|------|------|--------|
+| arXiv 논문 검색 | `tools/arxiv_search.py` | arXiv 프리프린트 논문 검색 | 불필요 |
+| OQMD 재료 DB | `tools/oqmd_search.py` | DFT 계산 데이터 검색 (Materials Project 보완) | 불필요 |
+| 웹검색 LLM 요약 | `tools/web_search.py` | 검색 결과를 Gemini LLM으로 자동 요약 | Gemini API 키 사용 |
+| 멀티턴 대화 메모리 | `agent.py` | 최근 5턴 대화 기억 (ConversationBufferWindowMemory) | - |
+
+### 1. arXiv 논문 검색 (`tools/arxiv_search.py`)
+
+Python `arxiv` 라이브러리를 사용하여 arXiv에서 프리프린트 논문을 검색합니다.
+
+```python
+# 단독 테스트
+python tools/arxiv_search.py
+```
+
+**반환 정보:** 제목, 저자, 초록, 발행일, arXiv ID, PDF URL, 카테고리
+
+**활용 예시:**
+- "copper interconnect electromigration" 최신 연구 검색
+- 재료과학 카테고리(`cond-mat.mtrl-sci`) 필터링 검색
+
+### 2. OQMD 재료 데이터베이스 (`tools/oqmd_search.py`)
+
+[OQMD](https://oqmd.org/) REST API를 통해 DFT(밀도범함수이론) 계산 데이터를 검색합니다.
+
+```python
+# 단독 테스트
+python tools/oqmd_search.py
+```
+
+**입력 형식:**
+- 정확한 화학식: `Cu2O`, `CuMg`
+- 원소 조합: `Cu-Mg`, `Fe-Ni`
+
+**반환 정보:** Formation energy, band gap, stability, 공간군, 체적
+
+**Materials Project와의 차이:**
+- OQMD는 API 키 없이 사용 가능
+- 두 DB의 결과를 cross-reference하여 데이터 신뢰성 향상
+
+### 3. 웹검색 LLM 요약 (`tools/web_search.py`)
+
+기존 Brave Search 결과를 Gemini LLM이 자동으로 요약합니다.
+
+```
+검색 → _format_results() → _summarize_with_llm() → 핵심 요약문
+```
+
+- `config.py`에서 `WEB_SEARCH_SUMMARIZE = False`로 설정하면 기존 방식(요약 없음)으로 동작
+- LLM 요약 실패 시 자동으로 원본 결과 반환 (fallback)
+
+### 4. 멀티턴 대화 메모리
+
+`ConversationBufferWindowMemory`를 사용하여 최근 대화를 기억합니다.
+
+```python
+# config.py에서 윈도우 크기 조절
+MEMORY_WINDOW_SIZE = 5  # 최근 5턴 유지
+```
+
+**동작 방식:**
+1. 사용자가 "Cu-Mg 합금의 저항률은?" → 에이전트 답변
+2. 사용자가 "그럼 밴드갭은?" → 에이전트가 "Cu-Mg"를 기억하고 밴드갭 검색
+3. Streamlit에서 "대화 초기화" 시 메모리도 함께 리셋
+
+### 5. 새로운 설정값 (`config.py`)
+
+```python
+# OQMD 설정
+OQMD_API_BASE_URL = "https://oqmd.org/api/v1"
+OQMD_API_TIMEOUT = 30
+
+# arXiv 설정
+ARXIV_MAX_RESULTS = 5
+
+# 웹검색 후처리
+WEB_SEARCH_SUMMARIZE = True
+
+# 멀티턴 대화 메모리
+MEMORY_WINDOW_SIZE = 5
+```
+
+### 챌린지 아이디어
+
+학생들이 추가로 도전해볼 수 있는 확장 과제:
+
+1. **arXiv 카테고리 자동 필터링**: 쿼리 분석 후 적절한 arXiv 카테고리를 자동 선택
+2. **OQMD + Materials Project 자동 비교**: 같은 화학식에 대해 두 DB 결과를 자동 비교하는 체인 구성
+3. **대화 요약 메모리**: `ConversationSummaryMemory`로 변경하여 긴 대화도 효율적으로 관리
+4. **검색 결과 캐싱**: 동일 쿼리 반복 시 API 호출 줄이기
+5. **사용자 피드백 루프**: 답변에 대한 만족도를 수집하여 프롬프트 개선
 
 ---
 

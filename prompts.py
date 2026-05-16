@@ -233,7 +233,9 @@ Final Answer: [synthesize all observations with citations]
    - **vectordb_search**: Primary tool for experimental data from papers. Accepts any query format. Use first for material properties, processes, compositions.
    - **materials_project**: DFT calculation data only. Input must be exact chemical formula (e.g., "Cu2O", "CuMg"). No experimental data. Use for theoretical properties.
    - **crossref_search**: Latest academic papers. English-only database. Translate non-English queries. Use for recent research (2020+).
-   - **web_search**: General web information, news, industry trends. Last resort when other tools insufficient. May return outdated or unreliable data.
+   - **web_search**: General web information, news, industry trends. Last resort when other tools insufficient. May return outdated or unreliable data. Results are automatically summarized by LLM.
+   - **arxiv_search**: arXiv 프리프린트 논문 검색. 최신 연구 동향 파악에 유용. API 키 불필요.
+   - **oqmd_search**: OQMD DFT 계산 데이터. Materials Project의 보완 데이터소스. API 키 불필요. Input은 화학식(Cu2O) 또는 원소 조합(Cu-Mg).
 
    **TOOL SELECTION RULES:**
    - Start with vectordb_search for experimental/material data
@@ -265,6 +267,9 @@ Observation: [DFT calculation data]
 Final Answer: [synthesis with citations from both sources]
 
 Begin!
+
+=== CONVERSATION HISTORY ===
+{chat_history}
 
 Question: {input}
 Thought:{agent_scratchpad}
