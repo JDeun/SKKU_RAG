@@ -90,12 +90,12 @@ def search_vectordb(
 vectordb_search_tool = Tool(
     name="vectordb_search",
     description="""
-    연구 논문의 VectorDB에서 C-P-P(Composition-Process-Property) 데이터를 검색합니다.
-    
-    입력: 검색 쿼리 (예: "Cu-Mg alloy resistivity", "electromigration properties")
-    반환: 관련 문서 청크 + C-P-P 메타데이터
-    
-    실험 데이터, 제조 공정, 재료 특성을 찾을 때 사용하세요.
+    Searches C-P-P (Composition-Process-Property) data from research papers stored in VectorDB.
+
+    Input: search query (e.g., "Cu-Mg alloy resistivity", "electromigration properties")
+    Output: relevant document chunks with C-P-P metadata
+
+    Use for: experimental data, manufacturing processes, material properties from papers
     """,
     func=lambda query: _format_results(search_vectordb(query))
 )
