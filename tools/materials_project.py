@@ -4,12 +4,14 @@ Materials Project Tool
 Materials Project API를 사용하여 계산 재료 데이터를 검색하는 도구입니다.
 """
 
+import logging
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from typing import Optional, Dict, Any
 from mp_api.client import MPRester
+from langchain_core.tools import Tool
 import config
 
 
@@ -48,7 +50,7 @@ def search_materials_project(
     try:
         with MPRester(config.MATERIALS_PROJECT_API_KEY) as mpr:
             # formula로 검색
-            docs = mpr.materials.summary.search(
+            docs = mpr.summary.search(
                 formula=formula,
                 fields=[
                     "material_id",
@@ -72,51 +74,54 @@ def search_materials_project(
                 }
             
             # 가장 안정한 구조 선택 (is_stable=True, formation_energy_per_atom이 가장 낮은 순)
-            stable_docs = sorted(
-                docs,
-                key=lambda d: (not d.is_stable, d.formation_energy_per_atom or float('inf'))
-            )
+            def _sort_key(d):
+                fe = getattr(d, "formation_energy_per_atom", None)
+                return (
+                    not getattr(d, "is_stable", False),
+                    float('inf') if fe is None else fe,
+                )
+            stable_docs = sorted(docs, key=_sort_key)
             doc = stable_docs[0]
             
             # 결과 포맷팅
             result = {
                 "material_id": str(doc.material_id),
-                "formula": doc.formula_pretty,
+                "formula": doc.formula_pretty or "N/A",
                 "band_gap": doc.band_gap,
                 "formation_energy_per_atom": doc.formation_energy_per_atom,
                 "energy_per_atom": doc.energy_per_atom,
                 "is_stable": doc.is_stable,
-                "crystal_system": doc.symmetry.crystal_system.value if doc.symmetry else "N/A",
+                "crystal_system": doc.symmetry.crystal_system.value if doc.symmetry and doc.symmetry.crystal_system else "N/A",
                 "space_group": doc.symmetry.symbol if doc.symmetry else "N/A",
                 "density": doc.density,
                 "volume": doc.volume,
                 "nsites": doc.nsites,
-                "elements": [str(e) for e in doc.elements]
+                "elements": [str(e) for e in (doc.elements or [])]
             }
             
             # 특정 속성만 요청한 경우
             if property_name:
                 if property_name in result:
+                    val = result[property_name]
                     return {
                         "formula": result["formula"],
-                        property_name: result[property_name],
+                        property_name: val if val is not None else "N/A",
                         "material_id": result["material_id"]
                     }
                 else:
-                    result["warning"] = f"'{property_name}' 속성을 찾을 수 없습니다."
+                    result = {**result, "warning": f"'{property_name}' 속성을 찾을 수 없습니다."}
             
             return result
             
-    except Exception as e:
+    except Exception:
+        logging.exception("Materials Project API error: %s", formula)
         return {
-            "error": f"Materials Project API 오류: {str(e)}",
+            "error": "Materials Project API 호출 중 오류가 발생했습니다. API 키와 네트워크를 확인하세요.",
             "formula": formula
         }
 
 
 # ==================== LangChain Tool 래퍼 ====================
-from langchain.tools import Tool
-
 materials_project_tool = Tool(
     name="materials_project",
     description="""
@@ -142,8 +147,13 @@ def _parse_and_search(query: str) -> str:
     Returns:
         검색 결과 문자열
     """
-    parts = query.strip().split()
-    formula = parts[0]
+    query = query.strip().strip('`"\' ')
+    if not query:
+        return "오류: 빈 입력입니다. 화학식을 입력하세요 (예: 'Cu2O')."
+    parts = query.split()
+    formula = parts[0].strip('`"\' ')
+    if formula.lower().startswith("property:"):
+        return "오류: 화학식 없이 property만 지정했습니다. 예: 'Cu2O property:band_gap'"
     
     # property: 구문 파싱
     property_name = None
@@ -157,7 +167,12 @@ def _parse_and_search(query: str) -> str:
     
     # 에러 처리
     if "error" in result:
-        return f"오류: {result['error']}\n{result.get('info', '')}{result.get('suggestion', '')}"
+        error_parts = [f"오류: {result['error']}"]
+        if result.get("info"):
+            error_parts.append(result["info"])
+        if result.get("suggestion"):
+            error_parts.append(result["suggestion"])
+        return "\n".join(error_parts)
     
     # 결과 포맷팅
     if property_name and property_name in result:
@@ -166,15 +181,18 @@ def _parse_and_search(query: str) -> str:
             f"{property_name}: {result[property_name]}"
         )
     
-    # 전체 정보 반환
+    # 전체 정보 반환 (None-safe 포맷팅)
+    bg = result.get('band_gap')
+    fe = result.get('formation_energy_per_atom')
+    dens = result.get('density')
     output = [
         f"=== {result['formula']} (ID: {result['material_id']}) ===",
-        f"Band Gap: {result['band_gap']} eV",
-        f"Formation Energy: {result['formation_energy_per_atom']} eV/atom",
-        f"Stable: {'Yes' if result['is_stable'] else 'No'}",
+        f"Band Gap: {bg:.3f} eV" if bg is not None else "Band Gap: N/A",
+        f"Formation Energy: {fe:.3f} eV/atom" if fe is not None else "Formation Energy: N/A",
+        f"Stable: {'Yes' if result.get('is_stable') else 'No'}",
         f"Crystal System: {result['crystal_system']}",
         f"Space Group: {result['space_group']}",
-        f"Density: {result['density']:.2f} g/cm³",
+        f"Density: {dens:.2f} g/cm³" if dens is not None else "Density: N/A",
         f"Elements: {', '.join(result['elements'])}"
     ]
     

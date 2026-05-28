@@ -4,6 +4,7 @@ AgenticRAG Agent
 ReAct 프레임워크를 사용하여 4개의 도구를 통합한 에이전트입니다.
 """
 
+import logging
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
@@ -11,7 +12,7 @@ sys.path.append(str(Path(__file__).parent))
 from typing import Optional, Dict, Any
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 # 설정 및 프롬프트
 import config
@@ -22,6 +23,37 @@ from tools.vectordb_search import vectordb_search_tool
 from tools.materials_project import materials_project_tool
 from tools.crossref import crossref_tool
 from tools.web_search import web_search_tool
+
+
+# ==================== LLM 빌더 (Gemini → Groq fallback) ====================
+def _build_llm(temperature: float):
+    """
+    Gemini를 기본 LLM으로 생성합니다.
+    GROQ_API_KEY가 설정되어 있으면 Gemini 실패 시 Groq로 자동 전환합니다.
+
+    LangChain의 with_fallbacks()를 사용하므로 호출 코드 변경 없이 동작합니다.
+    Gemini가 사용량 한도 초과·인증 오류·타임아웃 등으로 예외를 던지면
+    즉시 Groq로 재시도합니다.
+    """
+    gemini = ChatGoogleGenerativeAI(
+        model=config.LLM_MODEL_NAME,
+        temperature=temperature,
+        streaming=config.LLM_STREAMING,
+        max_output_tokens=config.LLM_MAX_OUTPUT_TOKENS,
+        google_api_key=config.GOOGLE_API_KEY
+    )
+
+    if not config.GROQ_API_KEY:
+        return gemini
+
+    from langchain_groq import ChatGroq
+    groq_llm = ChatGroq(
+        model=config.GROQ_MODEL_NAME,
+        temperature=temperature,
+        max_tokens=config.LLM_MAX_OUTPUT_TOKENS,
+        api_key=config.GROQ_API_KEY
+    )
+    return gemini.with_fallbacks([groq_llm])
 
 
 # ==================== Agent 초기화 ====================
@@ -39,13 +71,8 @@ def create_agent(
     Returns:
         AgentExecutor 인스턴스
     """
-    # LLM 초기화
-    llm = ChatGoogleGenerativeAI(
-        model=config.LLM_MODEL_NAME,
-        temperature=temperature,
-        streaming=config.LLM_STREAMING,
-        google_api_key=config.GOOGLE_API_KEY
-    )
+    # LLM 초기화 (Groq fallback 포함)
+    llm = _build_llm(temperature)
 
     # 도구 리스트
     tools = [
@@ -71,7 +98,17 @@ def create_agent(
         tools=tools,
         verbose=verbose,
         max_iterations=config.AGENT_MAX_ITERATIONS,
-        handle_parsing_errors=True,
+        max_execution_time=config.AGENT_TIMEOUT,
+        handle_parsing_errors=(
+            "Output format error. Rewrite your response following this exact format:\n"
+            "Thought: [your reasoning]\n"
+            "Action: [tool name]\n"
+            "Action Input: [query]\n"
+            "OR, if you already have enough information:\n"
+            "Thought: [your reasoning]\n"
+            "Final Answer: [your answer]\n"
+            "Do NOT add blank lines between these lines."
+        ),
         return_intermediate_steps=True
     )
 
@@ -113,10 +150,11 @@ def run_agent(
 
         return response
 
-    except Exception as e:
+    except Exception:
+        logging.exception("Agent execution failed")
         return {
-            "output": f"에이전트 실행 중 오류 발생: {str(e)}",
-            "error": str(e)
+            "output": "에이전트 실행 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+            "error": "agent_error"
         }
 
 
@@ -141,8 +179,9 @@ def interactive_chat():
     try:
         agent = create_agent(verbose=True)  # 추론 과정 표시
         print("✅ 준비 완료!\n")
-    except Exception as e:
-        print(f"❌ 에이전트 초기화 실패: {e}")
+    except Exception:
+        logging.exception("Agent initialization failed")
+        print("❌ 에이전트 초기화 실패. 설정을 확인하세요.")
         return
 
     # 대화 루프
@@ -174,8 +213,9 @@ def interactive_chat():
         except KeyboardInterrupt:
             print("\n\n👋 AgenticRAG를 종료합니다.")
             break
-        except Exception as e:
-            print(f"\n❌ 오류 발생: {e}\n")
+        except Exception:
+            logging.exception("Interactive chat error")
+            print("\n❌ 오류 발생: 잠시 후 다시 시도해 주세요.\n")
 
 
 # ==================== 테스트 코드 ====================
@@ -217,7 +257,8 @@ if __name__ == "__main__":
             for step in result["intermediate_steps"]:
                 print(f"\nAction: {step[0].tool}")
                 print(f"Input: {step[0].tool_input}")
-                print(f"Output: {step[1][:200]}...")
+                out = str(step[1])
+                print(f"Output: {out[:200]}{'...' if len(out) > 200 else ''}")
 
     # 대화형 모드
     else:

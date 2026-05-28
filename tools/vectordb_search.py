@@ -4,11 +4,13 @@ VectorDB Search Tool
 VectorDB에서 C-P-P 메타데이터를 포함한 문서를 검색하는 도구입니다.
 """
 
+import logging
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from typing import List, Dict, Any
+from langchain_core.tools import Tool
 import config
 from vectordb import create_or_load_vectordb
 
@@ -76,16 +78,15 @@ def search_vectordb(
         
         return formatted_results
         
-    except Exception as e:
+    except Exception:
+        logging.exception("VectorDB search error")
         return [{
-            "error": f"VectorDB 검색 오류: {str(e)}",
+            "error": "VectorDB 검색 중 오류가 발생했습니다. DB 상태를 확인하세요.",
             "query": query
         }]
 
 
 # ==================== LangChain Tool 래퍼 ====================
-from langchain.tools import Tool
-
 vectordb_search_tool = Tool(
     name="vectordb_search",
     description="""
@@ -121,10 +122,12 @@ def _format_results(results: List[Dict[str, Any]]) -> str:
     output = [f"=== {len(results)}개의 관련 문서 검색 ===\n"]
     
     for i, doc in enumerate(results, 1):
+        process = doc.get('process') or "N/A"
+        prop = doc.get('property') or "N/A"
         output.append(f"[{i}] {doc['source']} (p.{doc['page']})")
-        output.append(f"  📌 Composition: {doc['composition']}")
-        output.append(f"  🔧 Process: {doc['process'][:200]}..." if len(doc['process']) > 200 else f"  🔧 Process: {doc['process']}")
-        output.append(f"  📊 Property: {doc['property'][:200]}..." if len(doc['property']) > 200 else f"  📊 Property: {doc['property']}")
+        output.append(f"  📌 Composition: {doc.get('composition') or 'N/A'}")
+        output.append(f"  🔧 Process: {process[:200]}..." if len(process) > 200 else f"  🔧 Process: {process}")
+        output.append(f"  📊 Property: {prop[:200]}..." if len(prop) > 200 else f"  📊 Property: {prop}")
         output.append(f"  📄 Content: {doc['content']}")
         output.append("")  # 빈 줄
     
@@ -138,7 +141,11 @@ if __name__ == "__main__":
     # VectorDB 존재 확인
     try:
         db = get_vectordb()
-        print(f"✅ VectorDB 로드 성공 (문서 수: {db._collection.count()})\n")
+        try:
+            count = db._collection.count()
+        except Exception:
+            count = "?"
+        print(f"✅ VectorDB 로드 성공 (문서 수: {count})\n")
     except Exception as e:
         print(f"❌ VectorDB 로드 실패: {e}")
         print("vectordb.py를 먼저 실행하여 DB를 생성하세요.\n")

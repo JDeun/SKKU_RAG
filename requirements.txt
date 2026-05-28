@@ -1,34 +1,42 @@
 # AgenticRAG 필수 패키지
-# Python 3.9 이상 필요
+# Python 3.10 이상 필요
 
-# LangChain 관련
-langchain==0.1.20
-langchain-community==0.0.38
-langchain-google-genai==1.0.3
+# LangChain 관련 (0.3.x 이상 / 의존성 충돌 해결을 위해 버전 범위로 지정)
+langchain>=0.3.7
+langchain-community>=0.3.7
+langchain-google-genai>=2.0.7
+langchain-core>=0.3.21
+langchain-text-splitters>=0.3.3
 
 # Vector Database & Embeddings
-chromadb==0.4.24
-sentence-transformers==2.7.0
+chromadb>=0.5.0
+langchain-chroma>=0.1.4
+langchain-ollama>=0.2.0
 
 # PDF 처리
-pymupdf==1.24.2
+pymupdf>=1.24.2
 
 # 유틸리티
-tiktoken==0.6.0
-python-dotenv==1.0.1
-tqdm==4.66.2
+tiktoken>=0.7.0
+python-dotenv>=1.0.1
+tqdm>=4.66.0
 
 # API 클라이언트
-mp-api==0.41.2
-habanero==1.2.6
+mp-api>=0.43.0
+habanero>=1.2.6
 
 # 웹 UI
-streamlit==1.33.0
+streamlit>=1.38.0
 
 # 기타 의존성
-torch>=2.0.0
-transformers>=4.30.0
-numpy>=1.24.0
+numpy>=1.26.0
 
 # Web Search API
-requests>=2.25.0
+requests>=2.31.0
+duckduckgo-search>=6.0.0
+
+# Groq API (Gemini fallback용, 선택)
+langchain-groq>=0.2.0
+
+# Pydantic v2 (LangChain 0.3+ 의존성)
+pydantic>=2.0.0

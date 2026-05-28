@@ -2,8 +2,8 @@
 
 > **학습 목적**: 이 프로젝트는 AI 에이전트, RAG(Retrieval-Augmented Generation), ReAct, Tool Calling 등 최신 LLM 기술을 학습하기 위한 교육용 프로젝트입니다.
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.1.20-green.svg)](https://python.langchain.com/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![LangChain](https://img.shields.io/badge/LangChain-0.3+-green.svg)](https://python.langchain.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -21,6 +21,7 @@
 9. [코드 상세 설명](#-코드-상세-설명)
 10. [문제 해결](#-문제-해결)
 11. [참고 자료](#-참고-자료)
+12. [업데이트 이력](#-업데이트-이력)
 
 ---
 
@@ -668,29 +669,31 @@ results = db.search_by_vector(query_vector, top_k=5)
 #### 코드 예시
 
 ```python
-from sentence_transformers import SentenceTransformer
+from langchain_ollama import OllamaEmbeddings
 
-# 모델 로드
-model = SentenceTransformer('google/embeddinggemma-300m')
+# Ollama 임베딩 초기화 (로컬 실행, API 키 불필요)
+embeddings = OllamaEmbeddings(model="qwen3-embedding")
 
-# 텍스트 → 벡터
+# 텍스트 → 벡터 변환
 text1 = "Cu-Mg alloy has low resistivity"
-vector1 = model.encode(text1)
-# shape: (300,)  # 300개의 숫자
-# [0.234, -0.567, 0.891, ..., 0.123]
+vector1 = embeddings.embed_query(text1)
+# [0.234, -0.567, 0.891, ..., 0.123]  (1536차원)
 
 # 의미가 유사하면 벡터도 유사
 text2 = "Copper magnesium compound shows low resistance"
-vector2 = model.encode(text2)
+vector2 = embeddings.embed_query(text2)
 
-from scipy.spatial.distance import cosine
-similarity = 1 - cosine(vector1, vector2)
-print(f"유사도: {similarity:.3f}")  # 0.892 (매우 유사)
+import numpy as np
+similarity = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
+print(f"유사도: {similarity:.3f}")  # 0.9+ (매우 유사)
 ```
+
+> **참고**: `qwen3-embedding`은 [Ollama 모델 라이브러리](https://ollama.com/library/qwen3-embedding)에서 확인할 수 있습니다.
 
 #### 참고 자료
 - 📄 논문: ["Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"](https://arxiv.org/abs/1908.10084)
-- 🔗 [Hugging Face Embeddings](https://huggingface.co/models?pipeline_tag=sentence-similarity)
+- 🔗 [Ollama 공식 사이트](https://ollama.com)
+- 🔗 [qwen3-embedding 모델 페이지](https://ollama.com/library/qwen3-embedding)
 
 ---
 
@@ -1116,6 +1119,47 @@ sudo apt install git
 
 ---
 
+#### 3단계: Ollama 설치 (임베딩 모델용, 필수!)
+
+AgenticRAG는 텍스트를 벡터로 변환하는 **임베딩 모델**로 Ollama의 `qwen3-embedding`을 사용합니다.  
+Ollama는 AI 모델을 인터넷 연결 없이 로컬에서 실행하는 도구입니다.
+
+**왜 Ollama를 쓰나요?**
+- API 키 불필요 (완전 무료)
+- HuggingFace 방식(`torch`, `sentence-transformers`)에 비해 설치가 훨씬 간단
+- 한 번 다운로드 후 오프라인에서도 동작
+
+**Windows / Mac:**
+1. [https://ollama.com/download](https://ollama.com/download) 접속
+2. 운영체제에 맞는 설치 파일 다운로드 후 실행
+3. 기본 설정으로 설치 완료
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+**임베딩 모델 다운로드 (설치 후 한 번만):**
+```bash
+ollama pull qwen3-embedding
+```
+
+> 용량 약 1~2GB, 최초 1회만 다운로드합니다.
+
+**설치 확인:**
+```bash
+ollama list
+# 출력 예시:
+# NAME                    ID              SIZE
+# qwen3-embedding:latest  abc123def456    1.1 GB
+```
+
+> **중요**: VectorDB 생성 및 검색 시 Ollama가 실행 중이어야 합니다.  
+> Windows/Mac은 설치 후 백그라운드에서 자동 실행됩니다.  
+> Linux는 별도 터미널에서 `ollama serve`를 먼저 실행하세요.
+
+---
+
 ### 프로젝트 설치
 
 #### 방법 1: ZIP 다운로드 (초보자 추천)
@@ -1262,24 +1306,29 @@ Successfully installed langchain-0.1.20 ...
 
 ```bash
 # LangChain 관련
-pip install langchain==0.1.20
-pip install langchain-community==0.0.38
-pip install langchain-google-genai==1.0.3
+pip install "langchain>=0.3.7"
+pip install "langchain-community>=0.3.7"
+pip install "langchain-google-genai>=2.0.7"
+pip install "langchain-core>=0.3.21"
+pip install "langchain-text-splitters>=0.3.3"
+pip install "langchain-chroma>=0.1.4"
+pip install "langchain-ollama>=0.2.0"
+pip install "langchain-groq>=0.2.0"
 
 # Vector Database
-pip install chromadb==0.4.24
-pip install sentence-transformers==2.7.0
+pip install "chromadb>=0.5.0"
 
 # PDF 처리
-pip install pymupdf==1.24.2
+pip install "pymupdf>=1.24.2"
 
 # 기타
-pip install tiktoken==0.6.0
-pip install python-dotenv==1.0.1
-pip install tqdm==4.66.2
-pip install mp-api==0.41.2
-pip install habanero==1.2.6
-pip install streamlit==1.33.0
+pip install "tiktoken>=0.7.0"
+pip install "python-dotenv>=1.0.1"
+pip install "tqdm>=4.66.0"
+pip install "mp-api>=0.43.0"
+pip install "habanero>=1.2.6"
+pip install "streamlit>=1.38.0"
+pip install "duckduckgo-search>=6.0.0"
 ```
 
 #### 설치 확인
@@ -1318,11 +1367,21 @@ pip install --user -r requirements.txt
 1. [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) 다운로드
 2. 설치 후 재시도
 
-#### 문제 4: torch 설치 오류
+#### 문제 4: Ollama 연결 오류 ("Connection refused")
 
+임베딩 생성 또는 VectorDB 검색 시 `Connection refused` 오류가 나면 Ollama가 실행 중이지 않은 것입니다.
+
+**Windows/Mac**: 시스템 트레이에서 Ollama 아이콘 확인 후 클릭하여 시작
+
+**Linux**:
 ```bash
-# CPU 버전만 설치 (가벼움)
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+ollama serve &   # 백그라운드 실행
+```
+
+**모델이 없는 경우**:
+```bash
+ollama list                  # 설치된 모델 확인
+ollama pull qwen3-embedding  # 없으면 다시 다운로드
 ```
 
 ---
@@ -1500,11 +1559,71 @@ print(response.json()["web"]["results"][0]["title"])
 
 ---
 
+### 5. Groq API (선택, Gemini 사용량 초과 시 fallback) 🔄
+
+#### 왜 필요한가?
+- **Gemini 무료 티어 한도 초과 시 자동 대체**: Gemini API가 사용량 제한(Rate Limit)이나 오류를 반환하면, 설정된 Groq API로 **자동 전환**됩니다.
+- **비용**: 완전 무료 (무료 티어 제공)
+- **모델**: OpenAI GPT-OSS 20B (`openai/gpt-oss-20b`)
+- **속도**: 매우 빠름 (Groq의 LPU 칩 사용)
+
+#### 발급 단계
+
+**1단계: Groq Console 접속**
+```
+브라우저에서 https://console.groq.com/ 접속
+```
+
+**2단계: 계정 생성**
+1. "Sign Up" 클릭
+2. Google / GitHub 계정으로 소셜 로그인 또는 이메일 가입
+3. 이메일 인증
+
+**3단계: API 키 발급**
+```
+1. 로그인 후 좌측 메뉴에서 "API Keys" 클릭
+2. "Create API Key" 버튼 클릭
+3. 키 이름 입력 (예: "agentRAG")
+4. 생성된 키 복사 (예: gsk_xxxxxxxxxxxxxxxxxxxx)
+   ⚠️ 이 키는 한 번만 표시됩니다. 반드시 복사해두세요!
+```
+
+**4단계: API 키 저장**
+```bash
+# .env 파일에 추가
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
+```
+
+#### 무료 티어 한도 (2025년 기준)
+
+| 모델 | 분당 요청 | 일일 토큰 |
+|------|----------|----------|
+| openai/gpt-oss-20b | Groq 콘솔에서 확인 | Groq 콘솔에서 확인 |
+
+> 정확한 무료 티어 한도는 [Groq 공식 문서](https://console.groq.com/docs/rate-limits)에서 확인하세요.
+
+#### 동작 방식
+
+```
+사용자 질문
+    ↓
+Gemini API 호출 시도
+    ├─ 성공 → Gemini 답변 반환
+    └─ 실패 (한도 초과·오류) → Groq API 자동 재시도
+                                    ├─ 성공 → GPT-OSS 20B 답변 반환
+                                    └─ 실패 → 오류 메시지
+```
+
+> **참고**: Groq API 키를 설정하지 않아도 동작합니다. 단, Gemini가 실패하면 오류가 발생합니다.
+
+---
+
 ### 환경변수 파일 (.env) 최종 확인
 
 ```bash
 # .env 파일 내용
 GOOGLE_API_KEY=AIzaSyAbc123def456ghi789...
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx      # 선택, Gemini fallback용
 MATERIALS_PROJECT_API_KEY=mp-abc123def456...
 CROSSREF_MAILTO=your.email@example.com
 ```
@@ -2025,10 +2144,147 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ---
 
-**마지막 업데이트**: 2025-11-13  
+**마지막 업데이트**: 2026-05-28  
 **제작자**: Kevin.Cho  
-**버전**: 1.0.0
+**버전**: 1.2.0
 
 ---
 
 **⭐ 프로젝트가 도움이 되었다면 Star를 눌러주세요!**
+
+---
+
+## 🔄 업데이트 이력
+
+### v1.3.0 (2026-05-28) — 임베딩 모델 Ollama(qwen3-embedding)로 전환 + 버그 수정
+
+**배경**: HuggingFace 임베딩 방식은 `torch`, `sentence-transformers`, `transformers` 등 무거운 패키지가 필요해 설치 오류가 잦고 시간이 오래 걸렸음. Ollama는 별도 앱으로 설치하며 Python 의존성이 없어 훨씬 간단함.
+
+**임베딩 변경 내용**:
+- `config.py` — `EMBEDDING_MODEL_NAME = "qwen3-embedding"`, `OLLAMA_BASE_URL` 추가; `EMBEDDING_DEVICE` 제거
+- `vectordb.py` — `HuggingFaceEmbeddings` → `OllamaEmbeddings(model, base_url)` 로 교체
+- `requirements.txt` — `torch`, `transformers`, `sentence-transformers`, `langchain-huggingface` 제거; `langchain-ollama>=0.2.0` 추가
+- `.env.example` — `OLLAMA_BASE_URL` 항목 추가
+- `README.md` — Ollama 설치 가이드(3단계), 임베딩 코드 예시, 문제해결 섹션 추가
+
+**코드 품질 수정 내용**:
+- `config.py` — `input()` 런타임 호출 제거 (Streamlit 환경 크래시 방지); `LLM_STREAMING=False`로 변경 (ReAct 파서 안정성); `CROSSREF_MAILTO` 기본값 `None`으로 변경
+- `tools/materials_project.py` — 빈 입력 `IndexError` 방지; `None` 값 포맷팅 `TypeError` 방지; 정렬 키 `None`/`0.0` 처리; `mpr.summary.search` 경로 업데이트
+- `tools/crossref.py` — `abstract: None` 반환 시 `TypeError` 방지
+- `tools/web_search.py` — Brave Search JSON 파싱 실패 시 `ValueError` fallback 처리
+- `tools/vectordb_search.py` — C-P-P 메타데이터 `None` 슬라이싱 방지
+- `vectordb.py` — ChromaDB에 `None` 메타데이터 저장 방지; 청크 불변성 보장 (새 `Document` 생성); `langchain_chroma` 임포트 경로 업데이트
+- `agent.py` — `max_execution_time=config.AGENT_TIMEOUT` 적용 (미사용 설정 버그 수정)
+- `app.py` — temperature 슬라이더 변경 시 에이전트 자동 재생성
+
+**설정 방법**: Ollama 설치 후 `ollama pull qwen3-embedding` 실행, 기존 `chroma_db` 폴더 삭제 후 VectorDB 재생성 필요.
+
+---
+
+### v1.2.0 (2026-05-28) — Gemini → Groq fallback 추가
+
+**배경**: 무료 티어를 사용하는 학생들이 Gemini API 사용량 한도에 걸리는 문제 발생.
+
+**수정 내용**:
+- `requirements.txt` — `langchain-groq>=0.2.0` 추가
+- `config.py` — `GROQ_API_KEY`, `GROQ_MODEL_NAME` 설정 추가
+- `agent.py` — `_build_llm()` 헬퍼 추가: `gemini.with_fallbacks([groq])` 체인 구성
+- `vectordb.py` — C-P-P 추출 LLM에도 동일한 fallback 적용
+- `app.py` — 사이드바에 Groq fallback 활성화 여부 표시
+- `.env.example` — `GROQ_API_KEY` 항목 및 설명 추가
+- `README.md` — Groq API 발급 가이드 섹션 추가
+
+**설정 방법**: `.env` 파일에 `GROQ_API_KEY=gsk_...` 추가하면 즉시 적용됩니다.
+
+---
+
+### v1.1.0 (2026-05-28) — 학생 질문 반영 수정
+
+#### 1. LangChain 버전 의존성 충돌 해결 (질문 1 대응)
+
+**문제**: `langchain==0.1.20`을 사용하면 최신 `langchain-core`와 충돌하여 `ImportError` 발생.  
+`langchain_classic`으로 임시 우회하는 것은 근본적인 해결책이 아님.
+
+**수정 내용**:
+- `requirements.txt` — 버전 핀을 최신 호환 범위(`>=`)로 전면 교체
+  - `langchain==0.1.20` → `langchain>=0.3.7`
+  - `langchain-community==0.0.38` → `langchain-community>=0.3.7`
+  - `langchain-google-genai==1.0.3` → `langchain-google-genai>=2.0.7`
+  - `langchain-core`, `langchain-text-splitters`, `pydantic>=2.0.0` 명시 추가
+- `prompts.py` — `from pydantic.v1 import BaseModel, Field` → `from pydantic import BaseModel, Field`  
+  (pydantic v2/v3에서 `.v1` 호환 shim이 없어지는 문제 대응)
+- `tools/*.py` 4개 파일 — `from langchain.tools import Tool` → `from langchain_core.tools import Tool`  
+  (deprecated 경로 → 현재 권장 경로)
+- `agent.py` — `from langchain.prompts import PromptTemplate` → `from langchain_core.prompts import PromptTemplate`
+
+**의존성 충돌 경고가 표시되면**: 가상환경을 새로 만들고 아래 빠른 설치 가이드를 따르세요.
+
+```bash
+# 가상환경 새로 생성 (기존 환경의 충돌 완전 초기화)
+python -m venv venv
+
+# 활성화
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # Mac/Linux
+
+# pip 최신화 후 설치
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+---
+
+#### 2. ReAct 포맷 오류 반복 감소 (질문 2 대응)
+
+**문제**: tool 2개를 호출한 후 LLM이 `Final Answer`를 생성할 때  
+`"Invalid Format: Missing 'Action:' after 'Thought:'"` 오류가 3~5회 반복되는 현상.
+
+**원인**:
+- LangChain의 ReAct 파서는 `Thought:` 다음에 `Action:` 또는 `Final Answer:`가  
+  **공백 줄 없이 바로** 이어져야 정상 파싱됨.
+- 기존 프롬프트 예시가 `Observation:` 다음에 `Thought:` 없이 `Final Answer:`로 바로 점프하여  
+  LLM이 잘못된 패턴을 학습.
+- `handle_parsing_errors=True`만 설정하면 오류 메시지가 불명확하여 LLM이 같은 실수를 반복.
+
+**수정 내용**:
+- `prompts.py` → `REACT_SYSTEM_PROMPT`
+  - "CRITICAL RULES" 섹션 추가: Thought 다음에 반드시 Action 또는 Final Answer만 허용
+  - 공백 줄 금지, `Observation:` 직접 작성 금지 등 명시
+  - 예시에서 `Final Answer:` 직전에 `Thought:` 추가 (올바른 ReAct 패턴)
+- `agent.py` → `AgentExecutor`의 `handle_parsing_errors`를 구체적인 재시도 지침 문자열로 변경
+
+**ReAct 올바른 형식**:
+```
+Thought: 필요한 정보를 모두 수집했다. 이제 답변할 수 있다.
+Final Answer: [최종 답변]
+```
+
+---
+
+#### 3. 과거 대화의 사고 과정 로그 보기 기능 추가 (질문 3 대응)
+
+**문제**: "상세 로그" 체크박스를 켜도 가장 최근 응답의 사고 과정만 볼 수 있었음.  
+이전 질문/답변의 사고 과정(tool 호출 내역)을 다시 볼 수 없었음.
+
+**수정 내용** (`app.py`):
+- `run_agent()` 호출 시 `return_steps=True`로 고정 (verbose 여부와 관계없이 항상 steps 수집)
+- 각 어시스턴트 메시지를 저장할 때 `"steps"` 키로 중간 단계 함께 저장:
+  ```python
+  st.session_state.messages.append({
+      "role": "assistant",
+      "content": response,
+      "steps": steps          # 추가
+  })
+  ```
+- 대화 기록 표시 루프에서 `verbose=True`이고 `steps`가 있는 어시스턴트 메시지마다  
+  "🔍 사고 과정 보기" expander 표시:
+  ```python
+  for idx, message in enumerate(st.session_state.messages):
+      with st.chat_message(message["role"]):
+          if verbose and message["role"] == "assistant" and message.get("steps"):
+              with st.expander("🔍 사고 과정 보기"):
+                  ...
+          st.markdown(message["content"])
+  ```
+
+**사용 방법**: 사이드바의 "상세 로그" 체크박스를 켜면 이전 모든 답변의 사고 과정을 함께 볼 수 있습니다.

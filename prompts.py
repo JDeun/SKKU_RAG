@@ -4,7 +4,12 @@
 C-P-P 추출, RAG, Agent에 사용되는 모든 프롬프트를 관리합니다.
 """
 
-# ==================== Few-shot 예제 ====================
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
+from pydantic import BaseModel, Field
+
+
+# ==================== Few-shot 예제 (참고용) ====================
 FEW_SHOT_EXAMPLES = [
     {
         "composition": "Cu",
@@ -147,11 +152,6 @@ FEW_SHOT_EXAMPLES_STR = "\n\n".join([
 ])
 
 
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-from pydantic.v1 import BaseModel, Field
-
-
 # ==================== C-P-P 데이터 구조 정의 (Pydantic) ====================
 class CPPData(BaseModel):
     """C-P-P(Composition-Process-Property) 데이터 구조"""
@@ -213,55 +213,50 @@ REACT_SYSTEM_PROMPT = """You are a materials science research agent using the Re
 You have access to the following tools:
 {tools}
 
-Use the following format:
+=== STRICT OUTPUT FORMAT ===
 
-Thought: [Analyze query → decide tool]
-Action: The action to take, should be one of [{tool_names}]
-Action Input: [query for the tool]
-Observation: [tool result]
-...(repeat Thought/Action/Observation as needed)
-Final Answer: [synthesize all observations with citations]
+You MUST follow this format exactly. No blank lines between Thought/Action/Observation.
 
-=== GUIDELINES ===
+Thought: [analyze the query and decide what to do next]
+Action: [one of: {tool_names}]
+Action Input: [input for the tool]
+Observation: [tool result — filled in automatically, do NOT write this yourself]
+Thought: [analyze the observation and decide what to do next]
+Action: [tool name]
+Action Input: [input]
+Observation: [result]
+Thought: [I now have all the information I need to answer.]
+Final Answer: [comprehensive answer with citations]
 
-1. QUERY ANALYSIS:
-   - Understand user intent regardless of language (Korean, English, etc.)
-   - Break down complex queries into sub-tasks
-   - Determine which tools are needed
+=== CRITICAL RULES ===
 
-2. TOOL CONSTRAINTS:
-   - **vectordb_search**: Primary tool for experimental data from papers. Accepts any query format. Use first for material properties, processes, compositions.
-   - **materials_project**: DFT calculation data only. Input must be exact chemical formula (e.g., "Cu2O", "CuMg"). No experimental data. Use for theoretical properties.
-   - **crossref_search**: Latest academic papers. English-only database. Translate non-English queries. Use for recent research (2020+).
-   - **web_search**: General web information, news, industry trends. Last resort when other tools insufficient. May return outdated or unreliable data.
+1. After every "Thought:", write EXACTLY ONE of:
+   (a) "Action: [tool_name]" followed immediately by "Action Input: [input]"  — to call a tool
+   (b) "Final Answer: [answer]"  — when you have enough information, NO Action needed
+2. NEVER write "Action Input:" without "Action:" on the line immediately before it.
+3. NEVER write "Final Answer:" without a "Thought:" on the line immediately before it.
+4. NEVER add blank lines between Thought, Action, Action Input, or Final Answer.
+5. Do NOT write "Observation:" yourself — it is filled in by the system.
 
-   **TOOL SELECTION RULES:**
-   - Start with vectordb_search for experimental/material data
-   - Use materials_project only for theoretical calculations
-   - Reserve crossref_search for recent publications
-   - Use web_search sparingly and verify information
-   - If primary tool fails, try alternatives but note limitations
+=== TOOL SELECTION RULES ===
 
-3. ITERATIVE REASONING:
-   - Use multiple tools if needed for comprehensive answers
-   - If a tool returns insufficient results, try reformulating or use alternative tools
-   - Verify and cross-reference data from multiple sources
-
-4. RESPONSE QUALITY:
-   - Always cite specific sources with values
-   - Synthesize information from all tools used
-   - If tools fail or return no results, acknowledge limitations
+- **vectordb_search**: Experimental data from research papers. Use FIRST for material properties, processes, compositions.
+- **materials_project**: DFT calculation data only. Input must be exact chemical formula (e.g., "Cu2O", "CuMg"). Use for theoretical properties.
+- **crossref_search**: Latest academic papers (English database). Translate Korean queries to English.
+- **web_search**: General web info, news, industry trends. Use as last resort.
 
 === EXAMPLE ===
-User: "Resistivity of Cu-Mg alloys?"
-Thought: Need experimental resistivity data. Try vectordb first.
+
+Question: "Resistivity of Cu-Mg alloys?"
+Thought: I need experimental resistivity data from papers. I will use vectordb_search first.
 Action: vectordb_search
 Action Input: Cu-Mg alloy resistivity
 Observation: [experimental data found]
-Thought: Got experimental data. Check theoretical properties too.
+Thought: I have experimental data. I will also check theoretical properties from Materials Project.
 Action: materials_project
 Action Input: CuMg
 Observation: [DFT calculation data]
+Thought: I now have sufficient information from both sources to give a comprehensive answer.
 Final Answer: [synthesis with citations from both sources]
 
 Begin!

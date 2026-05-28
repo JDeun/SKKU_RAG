@@ -20,16 +20,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-# sentence-transformers 경고 억제 (모델 생성 시)
-logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
-
 # LangChain 관련 경고 억제
 logging.getLogger('langchain').setLevel(logging.WARNING)
 logging.getLogger('langchain_core').setLevel(logging.WARNING)
-
-# 기타 라이브러리 로깅 억제
-logging.getLogger('transformers').setLevel(logging.WARNING)
-logging.getLogger('torch').setLevel(logging.WARNING)
 
 # 환경변수 로드 (.env 파일이 있으면 자동 로드)
 load_dotenv()
@@ -48,19 +41,22 @@ DEFAULT_PDF_PATH = PROJECT_ROOT / "data" / "pdfs"
 # Google Gemini API 키
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
-    print("⚠️  경고: GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.")
-    print("   .env 파일에 추가하거나 직접 입력하세요.")
-    GOOGLE_API_KEY = input("Google API 키를 입력하세요: ").strip()
+    logging.warning("GOOGLE_API_KEY 환경변수가 설정되지 않았습니다. .env 파일에 추가하세요.")
 
 # Materials Project API 키
 MATERIALS_PROJECT_API_KEY = os.getenv("MATERIALS_PROJECT_API_KEY")
 if not MATERIALS_PROJECT_API_KEY:
-    print("⚠️  경고: MATERIALS_PROJECT_API_KEY 환경변수가 설정되지 않았습니다.")
-    print("   https://next-gen.materialsproject.org/api 에서 발급받으세요.")
-    MATERIALS_PROJECT_API_KEY = input("Materials Project API 키를 입력하세요 (선택, 엔터 시 스킵): ").strip() or None
+    logging.warning("MATERIALS_PROJECT_API_KEY 환경변수가 설정되지 않았습니다. https://next-gen.materialsproject.org/api 에서 발급받으세요.")
+
+# Groq API 키 (선택 - Gemini 사용량 초과·오류 시 fallback으로 자동 사용)
+# https://console.groq.com/ 에서 발급 (무료)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Crossref는 API 키 불필요 (이메일 권장)
-CROSSREF_MAILTO = os.getenv("CROSSREF_MAILTO", "your.email@example.com")
+CROSSREF_MAILTO = os.getenv("CROSSREF_MAILTO") or None  # 실제 이메일 설정 시 Crossref polite pool 사용 가능
+
+# Brave Search API 키 (선택, 없으면 DuckDuckGo로 자동 전환)
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
 
 # ==================== LLM 설정 ====================
@@ -68,14 +64,18 @@ CROSSREF_MAILTO = os.getenv("CROSSREF_MAILTO", "your.email@example.com")
 LLM_MODEL_NAME = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0.0  # 0에 가까울수록 결정론적, 1에 가까울수록 창의적
 LLM_MAX_OUTPUT_TOKENS = 2048  # 최대 출력 토큰 수
-LLM_STREAMING = True  # 스트리밍 출력 여부
+LLM_STREAMING = False  # ReAct agent에서 streaming은 파싱 오류 유발 — False 유지
+
+# Groq fallback 모델 설정 (Gemini 실패 시 자동 사용)
+# 무료 티어: llama-3.3-70b-versatile 권장
+GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b")
 
 
 # ==================== Embedding 모델 설정 ====================
-# HuggingFace Embedding 모델 (로컬 실행, API 키 불필요)
-# sentence-transformers 호환 모델 사용
-EMBEDDING_MODEL_NAME = "google/embeddinggemma-300m"
-EMBEDDING_DEVICE = "cpu"  # "cuda" 사용 시 GPU 가속
+# Ollama 임베딩 모델 (로컬 실행, API 키 불필요)
+# 사전 준비: ollama pull qwen3-embedding:latest
+EMBEDDING_MODEL_NAME = "qwen3-embedding:latest"  # 변경 시 chroma_db 재생성 필요
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 
 # ==================== VectorDB 설정 ====================
@@ -121,12 +121,11 @@ def validate_config():
         errors.append(f"VectorDB 상위 디렉토리가 존재하지 않습니다: {VECTOR_DB_PATH.parent}")
     
     if errors:
-        print("\n❌ 설정 오류:")
         for error in errors:
-            print(f"  - {error}")
+            logging.error("설정 오류: %s", error)
         return False
-    
-    print("✅ 설정 검증 완료")
+
+    logging.info("설정 검증 완료")
     return True
 
 
@@ -142,10 +141,11 @@ def print_config():
     print(f"🤖 LLM 모델: {LLM_MODEL_NAME}")
     print(f"🌡️  Temperature: {LLM_TEMPERATURE}")
     print(f"🔢 Embedding 모델: {EMBEDDING_MODEL_NAME}")
-    print(f"🖥️  디바이스: {EMBEDDING_DEVICE}")
+    print(f"🖥️  Ollama URL: {OLLAMA_BASE_URL}")
     print(f"📏 청크 크기: {CHUNK_SIZE}")
     print(f"📊 검색 Top-K: {RETRIEVAL_TOP_K}")
     print(f"🔑 Materials Project API: {'설정됨' if MATERIALS_PROJECT_API_KEY else '미설정'}")
+    print(f"🔑 Groq API (fallback): {'설정됨 → ' + GROQ_MODEL_NAME if GROQ_API_KEY else '미설정 (Gemini만 사용)'}")
     print(f"📧 Crossref mailto: {CROSSREF_MAILTO}")
     print("="*50 + "\n")
 

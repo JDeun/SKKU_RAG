@@ -4,8 +4,11 @@ VectorDB 생성 모듈
 PDF 문서를 로드하고, C-P-P(Composition-Process-Property)를 추출하여
 메타데이터와 함께 VectorDB에 저장합니다.
 """
+# ruff: noqa: E402  (os.environ/warnings 설정을 임포트 전에 실행해야 하므로 E402 비활성화)
 
+import logging
 import os
+import shutil
 import warnings
 
 # 로그 억제 설정 (imports 전에 실행)
@@ -19,10 +22,10 @@ import tiktoken
 from tqdm import tqdm
 
 # LangChain 관련 임포트
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_ollama import OllamaEmbeddings
+from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # PDF 처리 라이브러리 (pymupdf 사용)
@@ -71,42 +74,42 @@ def load_single_pdf(filepath: str, filename: str) -> List[Document]:
         
         # PyMuPDF로 PDF 열기
         doc = fitz.open(filepath)
-        
-        # 암호화 확인
-        if doc.is_encrypted:
-            print(f"🔒 암호화된 PDF 건너뜀: {filename}")
-            doc.close()
-            return []
-        
-        total_pages = len(doc)
-        pages_with_metadata = []
-        
-        # 페이지별로 텍스트 추출
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            text = page.get_text("text")  # 텍스트 추출
-            
-            # 빈 페이지 스킵
-            if not text.strip():
-                continue
-            
-            pages_with_metadata.append(
-                Document(
-                    page_content=text,
-                    metadata={
-                        'source': filename,
-                        'page': page_num + 1,  # 1부터 시작
-                        'total_pages': total_pages
-                    }
+        try:
+            # 암호화 확인
+            if doc.is_encrypted:
+                print(f"🔒 암호화된 PDF 건너뜀: {filename}")
+                return []
+
+            total_pages = len(doc)
+            pages_with_metadata = []
+
+            # 페이지별로 텍스트 추출
+            for page_num in range(total_pages):
+                page = doc[page_num]
+                text = page.get_text("text")
+
+                # 빈 페이지 스킵
+                if not text.strip():
+                    continue
+
+                pages_with_metadata.append(
+                    Document(
+                        page_content=text,
+                        metadata={
+                            'source': filename,
+                            'page': page_num + 1,  # 1부터 시작
+                            'total_pages': total_pages
+                        }
+                    )
                 )
-            )
-        
-        doc.close()
+        finally:
+            doc.close()
+
         print(f"  ✓ {filename}: {len(pages_with_metadata)} 페이지 로드")
         return pages_with_metadata
-        
-    except Exception as e:
-        print(f"❌ PDF 처리 오류: {filename} - {e}")
+
+    except Exception:
+        logging.exception("PDF 처리 오류: %s", filename)
         return []
 
 
@@ -201,18 +204,14 @@ def split_documents(
     return unique_chunks
 
 
-def add_cpp_to_chunks(
-    chunks: List[Document],
-    batch_size: int = 5
-) -> List[Document]:
+def add_cpp_to_chunks(chunks: List[Document]) -> List[Document]:
     """
     모든 청크에 C-P-P 메타데이터를 추가합니다.
     JSON Output Parser를 사용하여 안정적으로 데이터를 추출합니다.
-    
+
     Args:
         chunks: 청크 리스트
-        batch_size: 배치 크기 (한 번에 처리할 청크 수)
-        
+
     Returns:
         C-P-P 메타데이터가 추가된 청크 리스트
     """
@@ -221,30 +220,59 @@ def add_cpp_to_chunks(
     
     print(f"🔬 C-P-P 추출 중 (총 {len(chunks)}개 청크)...")
     
-    # LLM 및 추출 체인 초기화
-    llm = ChatGoogleGenerativeAI(
+    # LLM 초기화 (Groq fallback 포함)
+    gemini = ChatGoogleGenerativeAI(
         model=config.LLM_MODEL_NAME,
         temperature=config.LLM_TEMPERATURE,
         google_api_key=config.GOOGLE_API_KEY
     )
+    if config.GROQ_API_KEY:
+        from langchain_groq import ChatGroq
+        groq_llm = ChatGroq(
+            model=config.GROQ_MODEL_NAME,
+            temperature=config.LLM_TEMPERATURE,
+            max_tokens=config.LLM_MAX_OUTPUT_TOKENS,
+            api_key=config.GROQ_API_KEY
+        )
+        llm = gemini.with_fallbacks([groq_llm])
+    else:
+        llm = gemini
     extraction_chain = prompts.CPP_EXTRACTION_PROMPT | llm | prompts.json_parser
-    
+    _CPP_KEYS = ("composition", "process", "property")
+
+    def _to_str(v):
+        if isinstance(v, str):
+            return v
+        if v is None:
+            return "N/A"
+        if isinstance(v, list):
+            return ", ".join(str(x) for x in v) if v else "N/A"
+        return str(v)
+
     processed_chunks = []
     for i in tqdm(range(0, len(chunks)), desc="C-P-P 추출"):
         chunk = chunks[i]
         try:
-            # 체인 실행
             cpp = extraction_chain.invoke({"text": chunk.page_content})
-        except Exception as e:
-            # 파싱 오류 발생 시 기본값 사용
-            print(f"⚠️  C-P-P 추출/파싱 오류 (청크 {i}): {e}")
+        except Exception:
+            logging.warning("C-P-P 추출/파싱 오류 (청크 %d)", i, exc_info=True)
             cpp = {"composition": "N/A", "process": "N/A", "property": "N/A"}
-            
-        # 메타데이터에 C-P-P 추가
-        chunk.metadata.update(cpp)
-        processed_chunks.append(chunk)
-    
-    print(f"✅ C-P-P 추출 완료\n")
+
+        # ChromaDB는 None 값 저장 불가 → 정규화
+        if not isinstance(cpp, dict):
+            cpp = {}
+        # 알려진 키만 유지 (LLM이 반환한 임의 키가 ChromaDB 메타데이터에 누출되지 않도록)
+        cpp = {k: _to_str(v) for k, v in cpp.items() if k in _CPP_KEYS}
+        for key in _CPP_KEYS:
+            cpp.setdefault(key, "N/A")
+
+        # 원본 chunk 불변 유지 — 새 Document 생성
+        processed_chunks.append(Document(
+            page_content=chunk.page_content,
+            metadata={**chunk.metadata, **cpp},
+        ))
+
+    print("✅ C-P-P 추출 완료\n")
     return processed_chunks
 
 
@@ -253,7 +281,7 @@ def create_or_load_vectordb(
     chunks: Optional[List[Document]] = None,
     persist_directory: str = str(config.VECTOR_DB_PATH),
     force_recreate: bool = False
-) -> Chroma:
+) -> Optional[Chroma]:
     """
     VectorDB를 생성하거나 기존 DB를 로드합니다.
     
@@ -266,11 +294,16 @@ def create_or_load_vectordb(
         Chroma VectorDB 인스턴스
     """
     # Embedding 모델 초기화
-    embeddings = HuggingFaceEmbeddings(
-        model_name=config.EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": config.EMBEDDING_DEVICE}
+    embeddings = OllamaEmbeddings(
+        model=config.EMBEDDING_MODEL_NAME,
+        base_url=config.OLLAMA_BASE_URL,
     )
     
+    # force_recreate: 기존 DB 디렉토리 삭제 (중복 누적 방지)
+    if force_recreate and os.path.exists(persist_directory):
+        shutil.rmtree(persist_directory, ignore_errors=True)
+        print(f"🗑️  기존 VectorDB 삭제: {persist_directory}")
+
     # 기존 DB가 있고 재생성이 아닌 경우
     if os.path.exists(persist_directory) and not force_recreate:
         print(f"📂 기존 VectorDB 로드: {persist_directory}")
@@ -279,11 +312,15 @@ def create_or_load_vectordb(
                 persist_directory=persist_directory,
                 embedding_function=embeddings
             )
-            print(f"✅ VectorDB 로드 완료 (문서 수: {db._collection.count()})\n")
+            try:
+                count = db._collection.count()
+            except Exception:
+                count = "?"
+            print(f"✅ VectorDB 로드 완료 (문서 수: {count})\n")
             return db
-        except Exception as e:
-            print(f"⚠️  기존 DB 로드 실패: {e}")
-            print("   새로운 DB를 생성합니다.\n")
+        except Exception:
+            logging.exception("기존 DB 로드 실패")
+            print("⚠️  기존 DB 로드 실패. 새로운 DB를 생성합니다.\n")
     
     # 새 DB 생성
     if chunks is None or len(chunks) == 0:
@@ -297,11 +334,12 @@ def create_or_load_vectordb(
             embedding=embeddings,
             persist_directory=persist_directory
         )
-        db.persist()
+        # chromadb>=0.5.0 부터 persist_directory 지정 시 자동 저장됨 (persist() 제거됨)
         print(f"✅ VectorDB 생성 완료: {persist_directory}\n")
         return db
-    except Exception as e:
-        print(f"❌ VectorDB 생성 실패: {e}")
+    except Exception:
+        logging.exception("VectorDB 생성 실패")
+        print("❌ VectorDB 생성 실패. 로그를 확인하세요.")
         return None
 
 
@@ -310,7 +348,7 @@ def build_vectordb_pipeline(
     pdf_path: str,
     extract_cpp: bool = True,
     force_recreate: bool = False
-) -> Chroma:
+) -> Optional[Chroma]:
     """
     PDF → 청크 → C-P-P 추출 → VectorDB 생성의 전체 파이프라인
     
@@ -382,5 +420,7 @@ if __name__ == "__main__":
             print(f"\n--- 결과 {i} ---")
             print(f"출처: {doc.metadata.get('source')} (p.{doc.metadata.get('page')})")
             print(f"Composition: {doc.metadata.get('composition', 'N/A')}")
-            print(f"Process: {doc.metadata.get('process', 'N/A')[:100]}...")
-            print(f"Property: {doc.metadata.get('property', 'N/A')[:100]}...")
+            process = doc.metadata.get('process') or 'N/A'
+            prop = doc.metadata.get('property') or 'N/A'
+            print(f"Process: {process[:100]}...")
+            print(f"Property: {prop[:100]}...")

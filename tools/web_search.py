@@ -1,43 +1,34 @@
 """
 Web Search Tool
 ================
-Brave Search API를 사용하여 일반 웹에서 정보를 검색하는 도구입니다.
-DuckDuckGo보다 더 안정적이고 rate limit이 관대합니다.
+Brave Search API를 우선 사용하고, API 키 미설정·오류·Rate Limit 발생 시
+DuckDuckGo로 자동 전환(fallback)합니다.
 """
 
+import logging
 import sys
-import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from typing import List, Dict, Any
+from langchain_core.tools import Tool
 import requests
+import config
 
 
-def web_search(
-    query: str,
-    max_results: int = 5
-) -> List[Dict[str, Any]]:
+# ==================== Brave Search ====================
+def _brave_search(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
     """
-    Brave Search API를 사용하여 웹 검색을 수행합니다.
-
-    Args:
-        query: 검색 쿼리
-        max_results: 최대 결과 수 (기본 5개)
+    Brave Search API로 웹 검색을 시도합니다.
 
     Returns:
-        검색 결과 리스트
+        검색 결과 리스트. API 키 없음·오류 시 빈 리스트를 반환하여 fallback을 유도합니다.
     """
-    # API 키 확인
-    api_key = os.getenv("BRAVE_API_KEY")
+    api_key = config.BRAVE_API_KEY
     if not api_key:
-        return [{
-            "error": "BRAVE_API_KEY 환경변수가 설정되지 않았습니다.",
-            "suggestion": "https://api.search.brave.com/ 에서 API 키를 발급받으세요."
-        }]
+        return []
 
     try:
-        # Brave Search API 호출
         url = "https://api.search.brave.com/res/v1/web/search"
         headers = {
             "Accept": "application/json",
@@ -53,54 +44,91 @@ def web_search(
 
         response = requests.get(url, headers=headers, params=params, timeout=10)
         response.raise_for_status()
-
         data = response.json()
 
-        # 결과 파싱
         results = []
         if "web" in data and "results" in data["web"]:
-            for result in data["web"]["results"][:max_results]:
+            for item in data["web"]["results"][:max_results]:
                 results.append({
-                    "title": result.get("title", ""),
-                    "link": result.get("url", ""),
-                    "snippet": result.get("description", "")
+                    "title": item.get("title", ""),
+                    "link": item.get("url", ""),
+                    "snippet": item.get("description", ""),
+                    "_engine": "Brave"
                 })
-
         return results
 
-    except requests.exceptions.RequestException as e:
-        error_msg = str(e)
-        if "429" in error_msg:
-            return [{
-                "error": "Brave Search API rate limit 초과",
-                "query": query,
-                "suggestion": "잠시 후 다시 시도하거나 API 플랜을 확인하세요."
-            }]
-        elif "401" in error_msg:
-            return [{
-                "error": "Brave Search API 키가 유효하지 않습니다.",
-                "suggestion": "API 키를 다시 확인하세요."
-            }]
-        else:
-            return [{
-                "error": f"Brave Search API 오류: {error_msg}",
-                "query": query
-            }]
-    except Exception as e:
+    except (requests.exceptions.RequestException, ValueError):
+        logging.debug("Brave Search 오류 → DuckDuckGo로 전환", exc_info=True)
+        return []
+    except Exception:
+        logging.exception("Brave search error")
+        return []
+
+
+# ==================== DuckDuckGo Fallback ====================
+def _duckduckgo_search(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """
+    DuckDuckGo로 웹 검색을 수행합니다 (Brave 실패 시 fallback).
+
+    Returns:
+        검색 결과 리스트. 패키지 미설치 또는 오류 시 에러 딕셔너리를 담은 리스트 반환.
+    """
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
         return [{
-            "error": f"웹 검색 오류: {str(e)}",
+            "error": "duckduckgo-search 패키지가 설치되지 않았습니다.",
+            "suggestion": "pip install duckduckgo-search 를 실행하세요."
+        }]
+
+    try:
+        with DDGS() as ddgs:
+            raw = list(ddgs.text(query, max_results=max_results))
+        return [
+            {
+                "title": r.get("title", ""),
+                "link": r.get("href", ""),
+                "snippet": r.get("body", ""),
+                "_engine": "DuckDuckGo"
+            }
+            for r in raw
+        ]
+    except Exception:
+        logging.exception("DuckDuckGo search error")
+        return [{
+            "error": "DuckDuckGo 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
             "query": query
         }]
 
 
-# ==================== LangChain Tool 래퍼 ====================
-from langchain.tools import Tool
+# ==================== 공개 인터페이스 ====================
+def web_search(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    """
+    웹 검색을 수행합니다.
 
+    1순위: Brave Search API (BRAVE_API_KEY 환경변수 필요)
+    2순위: DuckDuckGo (API 키 불필요, 자동 fallback)
+
+    Args:
+        query: 검색 쿼리
+        max_results: 최대 결과 수 (기본 5개)
+
+    Returns:
+        검색 결과 리스트
+    """
+    results = _brave_search(query, max_results)
+    if results:
+        return results
+
+    # Brave 실패(키 없음·오류·빈 결과) → DuckDuckGo fallback
+    return _duckduckgo_search(query, max_results)
+
+
+# ==================== LangChain Tool 래퍼 ====================
 web_search_tool = Tool(
     name="web_search",
     description="""
-    Brave Search API를 사용하여 일반 웹에서 최신 정보를 검색합니다.
-    DuckDuckGo보다 더 안정적이고 rate limit이 관대합니다.
+    Brave Search(또는 DuckDuckGo fallback)로 일반 웹에서 최신 정보를 검색합니다.
 
     Input: 검색 키워드 (예: "copper alloy market trends 2024")
     Output: 웹 검색 결과 (제목, 링크, 요약)
@@ -112,42 +140,42 @@ web_search_tool = Tool(
 
 
 def _format_results(results: List[Dict[str, Any]]) -> str:
-    """
-    검색 결과를 읽기 쉬운 형식으로 포맷팅합니다.
-    """
+    """검색 결과를 읽기 쉬운 형식으로 포맷팅합니다."""
     if not results:
         return "검색 결과가 없습니다."
 
-    # 에러 처리
     if "error" in results[0]:
-        return f"오류: {results[0]['error']}\n검색어: {results[0].get('query', 'N/A')}"
+        error = results[0]["error"]
+        suggestion = results[0].get("suggestion", "")
+        query = results[0].get("query", "")
+        msg = f"오류: {error}"
+        if suggestion:
+            msg += f"\n{suggestion}"
+        if query:
+            msg += f"\n검색어: {query}"
+        return msg
 
-    # 결과 포맷팅
-    output = [f"=== Brave 웹 검색 결과 ({len(results)}개) ===\n"]
+    engine = results[0].get("_engine", "Web")
+    output = [f"=== {engine} 웹 검색 결과 ({len(results)}개) ===\n"]
 
     for i, result in enumerate(results, 1):
         output.append(f"{i}. {result.get('title', '제목 없음')}")
-        if 'link' in result:
+        if result.get("link"):
             output.append(f"   링크: {result['link']}")
-        if 'snippet' in result:
-            snippet = result['snippet'][:200] + "..." if len(result['snippet']) > 200 else result['snippet']
+        if result.get("snippet"):
+            snippet = result["snippet"]
+            if len(snippet) > 200:
+                snippet = snippet[:200] + "..."
             output.append(f"   요약: {snippet}")
-        output.append("")  # 빈 줄
+        output.append("")
 
     return "\n".join(output)
 
 
 # ==================== 테스트 코드 ====================
 if __name__ == "__main__":
-    print("Brave Web Search Tool 테스트\n")
+    print("Web Search Tool 테스트 (Brave → DuckDuckGo fallback)\n")
 
-    # API 키 확인
-    if not os.getenv("BRAVE_API_KEY"):
-        print("⚠️  BRAVE_API_KEY 환경변수가 설정되지 않았습니다.")
-        print("   .env 파일에 BRAVE_API_KEY=your_key_here 추가하세요.")
-        exit(1)
-
-    # 테스트 검색
     print("1. 'copper alloy trends 2024' 검색:")
     print(web_search_tool.run("copper alloy trends 2024"))
 

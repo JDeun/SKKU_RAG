@@ -4,13 +4,18 @@ Crossref Tool
 Crossref API를 사용하여 학술 논문 메타데이터를 검색하는 도구입니다.
 """
 
+import logging
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 from habanero import Crossref
+from langchain_core.tools import Tool
 import config
+
+# Crossref 클라이언트 (세션 재사용)
+_cr = Crossref(mailto=config.CROSSREF_MAILTO)
 
 
 def search_crossref(
@@ -42,11 +47,7 @@ def search_crossref(
         ]
     """
     try:
-        # Crossref 클라이언트 초기화
-        cr = Crossref(mailto=config.CROSSREF_MAILTO)
-        
-        # 검색 실행
-        results = cr.works(
+        results = _cr.works(
             query=query,
             limit=rows,
             sort=sort,
@@ -61,41 +62,48 @@ def search_crossref(
         # 결과 파싱
         papers = []
         for item in items:
-            # 제목 추출
-            title = item.get("title", ["No title"])[0] if item.get("title") else "No title"
+            # 제목 추출 (list / string / 누락 모두 방어)
+            title_raw = item.get("title")
+            if isinstance(title_raw, list) and title_raw:
+                title = str(title_raw[0])
+            elif isinstance(title_raw, str):
+                title = title_raw
+            else:
+                title = "No title"
             
             # 저자 추출
             authors = []
-            if "author" in item:
-                for author in item["author"][:3]:  # 최대 3명
+            author_list = item.get("author")
+            if isinstance(author_list, list):
+                for author in author_list[:3]:  # 최대 3명
                     given = author.get("given", "")
                     family = author.get("family", "")
                     if given and family:
                         authors.append(f"{given} {family}")
                     elif family:
                         authors.append(family)
-            
-            if len(item.get("author", [])) > 3:
-                authors.append("et al.")
+                if len(author_list) > 3:
+                    authors.append("et al.")
             
             authors_str = ", ".join(authors) if authors else "Unknown authors"
             
             # DOI
             doi = item.get("DOI", "No DOI")
             
-            # 발행 연도
-            published = item.get("published", {})
-            if "date-parts" in published and published["date-parts"]:
-                year = published["date-parts"][0][0]
-            else:
-                year = "Unknown year"
+            # 발행 연도 (non-dict/date-parts 누락 방어)
+            published = item.get("published")
+            if not isinstance(published, dict):
+                published = {}
+            dp_list = published.get("date-parts") or []
+            dp = dp_list[0] if dp_list else []
+            year = dp[0] if isinstance(dp, list) and dp and dp[0] is not None else "Unknown year"
             
             # 저널명
             journal = item.get("container-title", ["Unknown journal"])
             journal_str = journal[0] if isinstance(journal, list) and journal else "Unknown journal"
             
-            # 초록 (있는 경우)
-            abstract = item.get("abstract", "No abstract available")
+            # 초록 (None/비string 방어 — str()로 강제)
+            abstract = str(item.get("abstract") or "No abstract available")
             
             papers.append({
                 "title": title,
@@ -108,16 +116,15 @@ def search_crossref(
         
         return papers
         
-    except Exception as e:
+    except Exception:
+        logging.exception("Crossref API error")
         return [{
-            "error": f"Crossref API 오류: {str(e)}",
+            "error": "Crossref API 호출 중 오류가 발생했습니다. 네트워크를 확인하세요.",
             "query": query
         }]
 
 
 # ==================== LangChain Tool 래퍼 ====================
-from langchain.tools import Tool
-
 crossref_tool = Tool(
     name="crossref_search",
     description="""
@@ -161,7 +168,7 @@ def _format_results(papers: List[Dict[str, Any]]) -> str:
         output.append(f"   DOI: {paper['doi']}")
         
         # 초록이 있고 "No abstract"가 아닌 경우만 출력
-        if paper['abstract'] and not paper['abstract'].startswith("No abstract"):
+        if isinstance(paper.get('abstract'), str) and not paper['abstract'].startswith("No abstract"):
             output.append(f"   초록: {paper['abstract']}")
         
         output.append("")  # 빈 줄
