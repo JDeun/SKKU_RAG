@@ -1294,41 +1294,43 @@ pip install -r requirements.txt
 
 **설치 진행 과정:**
 ```
-Collecting langchain==0.1.20
-  Downloading langchain-0.1.20-py3-none-any.whl (...)
+Collecting langchain==0.3.30
+  Downloading langchain-0.3.30-py3-none-any.whl (...)
 Installing collected packages: ...
-Successfully installed langchain-0.1.20 ...
+Successfully installed langchain-0.3.30 langchain-core-0.3.86 ...
 ```
 
 **⏱️ 예상 시간**: 5-10분 (인터넷 속도에 따라)
 
 #### 개별 설치 (문제 발생 시)
 
+> 아래 버전은 requirements.txt와 동일하게 고정된 버전입니다. 충돌 방지를 위해 반드시 이 버전을 사용하세요.
+
 ```bash
-# LangChain 관련
-pip install "langchain>=0.3.7"
-pip install "langchain-community>=0.3.7"
-pip install "langchain-google-genai>=2.0.7"
-pip install "langchain-core>=0.3.21"
-pip install "langchain-text-splitters>=0.3.3"
-pip install "langchain-chroma>=0.1.4"
-pip install "langchain-ollama>=0.2.0"
-pip install "langchain-groq>=0.2.0"
+# LangChain 관련 (버전 고정 필수 — 1.x와 0.3.x 혼용 시 충돌 발생)
+pip install "langchain==0.3.30"
+pip install "langchain-community==0.3.21"
+pip install "langchain-google-genai==2.0.7"
+pip install "langchain-core==0.3.86"
+pip install "langchain-text-splitters==0.3.11"
+pip install "langchain-chroma==0.2.5"
+pip install "langchain-ollama==0.3.10"
+pip install "langchain-groq==0.2.4"
 
 # Vector Database
-pip install "chromadb>=0.5.0"
+pip install "chromadb==1.0.16"
 
 # PDF 처리
-pip install "pymupdf>=1.24.2"
+pip install "pymupdf==1.25.4"
 
 # 기타
-pip install "tiktoken>=0.7.0"
-pip install "python-dotenv>=1.0.1"
-pip install "tqdm>=4.66.0"
-pip install "mp-api>=0.43.0"
-pip install "habanero>=1.2.6"
-pip install "streamlit>=1.38.0"
-pip install "duckduckgo-search>=6.0.0"
+pip install "tiktoken==0.9.0"
+pip install "python-dotenv==1.0.1"
+pip install "tqdm==4.67.1"
+pip install "mp-api==0.45.3"
+pip install "habanero==2.3.0"
+pip install "streamlit==1.44.0"
+pip install "duckduckgo-search==8.0.2"
 ```
 
 #### 설치 확인
@@ -2144,9 +2146,9 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ---
 
-**마지막 업데이트**: 2026-05-28  
+**마지막 업데이트**: 2026-05-29  
 **제작자**: Kevin.Cho  
-**버전**: 1.2.0
+**버전**: 1.4.0
 
 ---
 
@@ -2155,6 +2157,35 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 ---
 
 ## 🔄 업데이트 이력
+
+### v1.4.0 (2026-05-29) — 패키지 버전 완전 고정 및 호환성 충돌 해결
+
+**배경**: `>=` 방식의 버전 범위 지정으로 인해 학생들이 설치 시 서로 다른 버전이 설치되어 충돌 발생. 특히 `langchain 1.x`와 `langchain-core 1.x`가 설치되면 `langchain-community`, `langchain-google-genai`, `langchain-groq` 등 나머지 패키지 전체가 요구하는 `langchain-core<0.4.0` 제약과 충돌해 임포트 오류가 발생.
+
+**수정 내용**:
+- `requirements.txt` — 모든 패키지 버전을 `>=` → `==` 정확한 버전으로 고정 (재현성 보장)
+- `requirements.txt` — `langchain==1.2.8` → `langchain==0.3.30`으로 다운그레이드
+  - `langchain 1.x`는 나머지 생태계 패키지(`langchain-community 0.3.x`, `langchain-google-genai 2.x`, `langchain-groq 0.2.x`)가 요구하는 `langchain-core<0.4.0`과 충돌
+- `requirements.txt` — `langchain-core==1.3.3` → `langchain-core==0.3.86`으로 다운그레이드
+  - `0.3.86`은 모든 패키지의 버전 제약(`<0.4.0`, `>=0.3.51` 등)을 동시에 만족하는 마지막 안정 버전
+- `requirements.txt` — `langchain-text-splitters==0.3.8` → `==0.3.11`로 업그레이드
+  - `langchain 0.3.30`이 `langchain-text-splitters>=0.3.9`를 요구하기 때문
+- `requirements.txt` — `langchain-ollama==1.0.1` → `==0.3.10`으로 다운그레이드
+  - `1.0.1`은 `langchain-core 1.x`를 요구하므로 `0.3.x` 에코시스템과 충돌
+
+**호환 버전 검증**: 변경 후 `pip install -r requirements.txt --dry-run`에서 오류 없음 확인, 모든 핵심 임포트(`AgentExecutor`, `create_react_agent`, `OllamaEmbeddings`, `ChatGoogleGenerativeAI` 등) 정상 동작 확인.
+
+**학생 참고**: 기존에 이미 설치한 환경이 있다면 새 가상환경을 만들어 설치하는 것을 권장합니다.
+
+```bash
+python -m venv venv
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # Mac/Linux
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+---
 
 ### v1.3.0 (2026-05-28) — 임베딩 모델 Ollama(qwen3-embedding)로 전환 + 버그 수정
 

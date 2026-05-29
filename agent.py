@@ -14,11 +14,9 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 
-# 설정 및 프롬프트
 import config
 import prompts
 
-# 도구 import
 from tools.vectordb_search import vectordb_search_tool
 from tools.materials_project import materials_project_tool
 from tools.crossref import crossref_tool
@@ -71,10 +69,8 @@ def create_agent(
     Returns:
         AgentExecutor 인스턴스
     """
-    # LLM 초기화 (Groq fallback 포함)
     llm = _build_llm(temperature)
 
-    # 도구 리스트
     tools = [
         vectordb_search_tool,
         materials_project_tool,
@@ -82,17 +78,14 @@ def create_agent(
         web_search_tool
     ]
 
-    # ReAct 프롬프트 구성
     react_prompt = PromptTemplate.from_template(prompts.REACT_SYSTEM_PROMPT)
 
-    # ReAct Agent 생성
     agent = create_react_agent(
         llm=llm,
         tools=tools,
         prompt=react_prompt
     )
 
-    # AgentExecutor로 래핑
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
@@ -131,8 +124,8 @@ def run_agent(
 
     Returns:
         {
-            "output": str,  # 최종 답변
-            "intermediate_steps": list  # 중간 단계 (return_steps=True인 경우)
+            "output": str,
+            "intermediate_steps": list  # return_steps=True인 경우
         }
     """
     if agent is None:
@@ -141,7 +134,7 @@ def run_agent(
     try:
         result = agent.invoke({"input": query})
 
-        response = {
+        response: Dict[str, Any] = {
             "output": result.get("output", "답변을 생성할 수 없습니다.")
         }
 
@@ -174,36 +167,29 @@ def interactive_chat():
     print("\n종료하려면 'exit', 'quit', 또는 'q'를 입력하세요.\n")
     print("="*60 + "\n")
 
-    # Agent 초기화
     print("🤖 에이전트 초기화 중...")
     try:
-        agent = create_agent(verbose=True)  # 추론 과정 표시
+        agent = create_agent(verbose=True)
         print("✅ 준비 완료!\n")
     except Exception:
         logging.exception("Agent initialization failed")
         print("❌ 에이전트 초기화 실패. 설정을 확인하세요.")
         return
 
-    # 대화 루프
     while True:
         try:
-            # 사용자 입력
             user_input = input("💬 질문: ").strip()
 
-            # 종료 명령
             if user_input.lower() in ["exit", "quit", "q"]:
                 print("\n👋 AgenticRAG를 종료합니다.")
                 break
 
-            # 빈 입력 스킵
             if not user_input:
                 continue
 
-            # 에이전트 실행
             print("\n🔍 검색 중...\n")
             result = run_agent(user_input, agent=agent)
 
-            # 결과 출력
             print("\n" + "="*60)
             print("📝 답변:")
             print("="*60)
@@ -236,10 +222,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # 설정 출력
     config.print_config()
 
-    # 단일 쿼리 모드
     if args.query:
         print(f"질문: {args.query}\n")
         agent = create_agent(verbose=args.verbose)
@@ -260,6 +244,5 @@ if __name__ == "__main__":
                 out = str(step[1])
                 print(f"Output: {out[:200]}{'...' if len(out) > 200 else ''}")
 
-    # 대화형 모드
     else:
         interactive_chat()
